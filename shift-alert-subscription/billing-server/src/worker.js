@@ -99,6 +99,202 @@ async function verifyWebhook(request, env, rawBody) {
   return timingSafeEqual(providedSignature, expected);
 }
 
+async function verifyPayPalWebhook(request, env, event) {
+  const clientId = env.PAYPAL_CLIENT_ID?.trim();
+  const clientSecret = env.PAYPAL_CLIENT_SECRET?.trim();
+  const webhookId = env.PAYPAL_WEBHOOK_ID?.trim();
+
+  if (!clientId || !clientSecret || !webhookId) {
+    return false;
+  }
+
+  const transmissionId =
+    request.headers.get("PAYPAL-TRANSMISSION-ID") || "";
+  const transmissionTime =
+    request.headers.get("PAYPAL-TRANSMISSION-TIME") || "";
+  const certUrl =
+    request.headers.get("PAYPAL-CERT-URL") || "";
+  const authAlgo =
+    request.headers.get("PAYPAL-AUTH-ALGO") || "";
+  const transmissionSig =
+    request.headers.get("PAYPAL-TRANSMISSION-SIG") || "";
+
+  if (
+    !transmissionId ||
+    !transmissionTime ||
+    !certUrl ||
+    !authAlgo ||
+    !transmissionSig
+  ) {
+    return false;
+  }
+
+  const baseUrl =
+    env.PAYPAL_API_BASE_URL?.trim() ||
+    "https://api-m.sandbox.paypal.com";
+
+  const credentials = btoa(`${clientId}:${clientSecret}`);
+
+  const tokenResponse = await fetch(
+    `${baseUrl}/v1/oauth2/token`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Basic ${credentials}`,
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: "grant_type=client_credentials",
+    }
+  );
+
+  if (!tokenResponse.ok) {
+    return false;
+  }
+
+  const tokenData = await tokenResponse.json();
+
+  if (!tokenData?.access_token) {
+    return false;
+  }
+
+  const verifyResponse = await fetch(
+    `${baseUrl}/v1/notifications/verify-webhook-signature`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${tokenData.access_token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        auth_algo: authAlgo,
+        cert_url: certUrl,
+        transmission_id: transmissionId,
+        transmission_sig: transmissionSig,
+        transmission_time: transmissionTime,
+        webhook_id: webhookId,
+        webhook_event: event,
+      }),
+    }
+  );
+
+  if (!verifyResponse.ok) {
+    return false;
+  }
+
+  const result = await verifyResponse.json();
+
+  return result?.verification_status === "SUCCESS";
+}
+
+async function handlePayPalWebhook(request, env) {
+  const rawBody = await request.text();
+
+  let event;
+
+  try {
+    event = JSON.parse(rawBody);
+  } catch {
+    return json(
+      { ok: false, message: "Invalid JSON payload." },
+      400
+    );
+  }
+
+  if (!(await verifyPayPalWebhook(request, env, event))) {
+    return json(
+      { ok: false, message: "Invalid PayPal webhook signature." },
+      400
+    );
+  }
+
+  if (event?.id && (await markEventSeen(env, event.id))) {
+    return json({ ok: true, duplicate: true });
+  }
+
+  /*
+   * We only activate access after PayPal confirms
+   * that the payment capture completed.
+   */
+  if (event?.event_type !== "PAYMENT.CAPTURE.COMPLETED") {
+    return json({ ok: true, ignored: true });
+  }
+
+  const resource = event?.resource || {};
+
+  const amountValue = Number(
+    resource?.amount?.value || 0
+  );
+
+  const currency =
+    resource?.amount?.currency_code || "";
+
+  const email =
+    resource?.payer?.email_address ||
+    resource?.payee?.email_address ||
+    "";
+
+  const paymentId =
+    resource?.id ||
+    crypto.randomUUID();
+
+  /*
+   * PayPal amounts are decimal currency values.
+   * Your existing configuration uses paise.
+   */
+  const amountPaise = Math.round(amountValue * 100);
+
+  const dayAmount = safeInt(
+    env.DAY_PASS_AMOUNT_PAISE,
+    DEFAULT_DAY_AMOUNT
+  );
+
+  const monthAmount = safeInt(
+    env.THIRTY_DAY_PASS_AMOUNT_PAISE,
+    DEFAULT_MONTH_AMOUNT
+  );
+
+  const dayHours = safeInt(
+    env.DAY_PASS_HOURS,
+    DEFAULT_DAY_HOURS
+  );
+
+  const monthDays = safeInt(
+    env.THIRTY_DAY_ACCESS_DAYS,
+    DEFAULT_MONTH_DAYS
+  );
+
+  const plan =
+    amountPaise >= monthAmount
+      ? "30-day"
+      : "day";
+
+  const expiresAt =
+    plan === "30-day"
+      ? nowPlusDays(monthDays)
+      : nowPlusHours(dayHours);
+
+  const license = {
+    token: crypto.randomUUID(),
+    email,
+    plan,
+    amount: amountPaise,
+    status: "paid",
+    paymentLinkId: `paypal_${paymentId}`,
+    expiresAt,
+  };
+
+  await upsertLicense(env, license);
+
+  return json({
+    ok: true,
+    provider: "paypal",
+    plan: license.plan,
+    token: license.token,
+    expiresAt: license.expiresAt,
+    currency,
+  });
+}
+
 async function ensureSchema(env) {
   await env.DB.prepare(`
     CREATE TABLE IF NOT EXISTS licenses (
@@ -265,8 +461,9 @@ export default {
       return json({ ok: true, service: "billing-worker", provider: "cloudflare-workers" });
     }
 
-    if (request.method === "POST" && pathname === "/v1/paypal/webhook") {
-      return handleWebhook(request, env);
+   if (request.method === "POST" && pathname === "/v1/paypal/webhook") {
+  return handlePayPalWebhook(request, env);
+
     }
 
     if (request.method === "POST" && pathname === "/v1/razorpay/webhook") {
