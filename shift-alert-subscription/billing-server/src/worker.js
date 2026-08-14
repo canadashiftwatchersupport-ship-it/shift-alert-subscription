@@ -12,6 +12,63 @@ function json(data, status = 200, headers = {}) {
   });
 }
 
+async function sendActivationEmail(env, license) {
+  const apiKey = env.RESEND_API_KEY?.trim();
+  const from = env.EMAIL_FROM?.trim();
+
+  if (!apiKey || !from) {
+    throw new Error("Email configuration is missing.");
+  }
+
+  if (!license.email) {
+    throw new Error("Customer email is missing.");
+  }
+
+  const response = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      from,
+      to: [license.email],
+      subject: "Your Canada Shift Watcher activation license",
+      html: `
+        <h2>Canada Shift Watcher</h2>
+
+        <p>Thank you for your payment.</p>
+
+        <p>Your activation license is:</p>
+
+        <p>
+          <strong style="font-size:20px;">
+            ${license.token}
+          </strong>
+        </p>
+
+        <p>
+          <strong>Plan:</strong> ${license.plan}<br>
+          <strong>Expires:</strong> ${license.expiresAt}
+        </p>
+
+        <p>
+          Use this license together with the email address used for your payment.
+        </p>
+
+        <p>Thank you,<br>Canada Shift Watcher</p>
+      `,
+    }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Email sending failed: ${errorText}`);
+  }
+
+  return response.json();
+}
+
 function nowPlusHours(hours) {
   return new Date(Date.now() + hours * 60 * 60 * 1000).toISOString();
 }
@@ -284,6 +341,8 @@ async function handlePayPalWebhook(request, env) {
   };
 
   await upsertLicense(env, license);
+
+  await sendActivationEmail(env, license);
 
   return json({
     ok: true,
