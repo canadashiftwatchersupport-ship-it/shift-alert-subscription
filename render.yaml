@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: canada-shift-watcher-billing
+    runtime: node
+    plan: starter
+    rootDir: billing-server
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: canada-shift-watcher-db
+          property: connectionString
+
+databases:
+  - name: canada-shift-watcher-db
+    plan: basic-256mb
