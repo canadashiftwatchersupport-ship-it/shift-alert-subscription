@@ -16,9 +16,9 @@ This customer edition detects matching job cards and opens the official Amazon l
 
 1. Create a free Cloudflare account.
 2. Create a D1 database.
-3. Update `billing-server/wrangler.toml` with your D1 database ID.
+3. Update `wrangler.toml` with your D1 database ID.
 4. Apply the schema from `billing-server/migrations/0001_init.sql`.
-5. Deploy the Worker with Wrangler.
+5. Deploy the Worker with Wrangler from the repo root.
 6. Set `LICENSE_API_BASE` in `extension/config.js` to the Worker URL.
 7. Load `extension/` through `chrome://extensions` during testing, then package it for distribution.
 

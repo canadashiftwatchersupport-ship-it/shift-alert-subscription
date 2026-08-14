@@ -2,7 +2,7 @@
 
 Use this folder for the no-card deployment path:
 
-- `outputs/shift-alert-subscription/billing-server`
+- `outputs/shift-alert-subscription`
 
 What gets deployed:
 
@@ -15,8 +15,8 @@ Cloudflare setup:
 
 1. Create a free Cloudflare account.
 2. Create a D1 database named `canada-shift-watcher-db`.
-3. Copy the D1 database ID into `billing-server/wrangler.toml`.
-4. Run `npm install` in `billing-server/`.
+3. Copy the D1 database ID into `wrangler.toml`.
+4. Run `npm install` in the repo root.
 5. Apply migrations with `npm run d1:apply`.
 6. Deploy with `npm run deploy`.
 7. Copy the Worker URL.

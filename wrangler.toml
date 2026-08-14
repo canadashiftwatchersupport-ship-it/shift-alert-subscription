@@ -1,0 +1,15 @@
+name = "canada-shift-watcher-billing"
+main = "billing-server/src/worker.js"
+compatibility_date = "2026-08-14"
+
+[vars]
+DAY_PASS_AMOUNT_PAISE = "1500"
+THIRTY_DAY_PASS_AMOUNT_PAISE = "7500"
+DAY_PASS_HOURS = "24"
+THIRTY_DAY_ACCESS_DAYS = "30"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "canada-shift-watcher-db"
+database_id = "REPLACE_WITH_YOUR_D1_DATABASE_ID"
+migrations_dir = "billing-server/migrations"
