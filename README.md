@@ -10,17 +10,23 @@ This customer edition detects matching job cards and opens the official Amazon l
 ## Parts
 
 - `extension/`: Chrome extension for customers.
-- `billing-server/`: Stripe checkout and license-verification starter.
+- `billing-server/`: Cloudflare Worker + D1 license server.
 
-## Before launch
+## Free deployment path
 
-1. Create Stripe Prices for the day pass and monthly subscription.
-2. Deploy `billing-server` with HTTPS and a real database.
-3. Set `LICENSE_API_BASE` in `extension/config.js` to the deployed server URL.
-4. Load `extension/` through `chrome://extensions` during testing, then package it for distribution.
+1. Create a free Cloudflare account.
+2. Create a D1 database.
+3. Update `billing-server/wrangler.toml` with your D1 database ID.
+4. Apply the schema from `billing-server/migrations/0001_init.sql`.
+5. Deploy the Worker with Wrangler.
+6. Set `LICENSE_API_BASE` in `extension/config.js` to the Worker URL.
+7. Load `extension/` through `chrome://extensions` during testing, then package it for distribution.
 
-## License email
+## License storage
 
-Add SMTP settings to the billing server environment using `.env.example`. After a successful Stripe checkout, the server creates a token tied to the checkout email and sends it automatically. Customers must enter that same email and token in the extension.
+The Worker stores licenses in D1 and verifies them server-side.
 
-Never put Stripe secret keys in the extension. Do not promise hiring, shift availability, or successful applications.
+## Notes
+
+- Do not place secret keys in the extension.
+- Do not promise hiring, shift availability, or successful applications.
