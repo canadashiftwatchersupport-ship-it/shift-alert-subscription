@@ -1,4 +1,4 @@
-name = "canada-shift-watcher-billing"
+name = "shift-alert-subscription"
 main = "billing-server/src/worker.js"
 compatibility_date = "2026-08-14"
 
