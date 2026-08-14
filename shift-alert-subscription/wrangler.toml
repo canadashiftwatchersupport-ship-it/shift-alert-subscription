@@ -1,4 +1,4 @@
-name = "canada-shift-watcher-billing"
+name = "shift-alert-subscription"
 main = "billing-server/src/worker.js"
 compatibility_date = "2026-08-14"
 
@@ -11,5 +11,5 @@ THIRTY_DAY_ACCESS_DAYS = "30"
 [[d1_databases]]
 binding = "DB"
 database_name = "canada-shift-watcher-db"
-database_id = "REPLACE_WITH_YOUR_D1_DATABASE_ID"
+database_id = "65f930e7-63ec-453e-b3bf-c80da8113d92"
 migrations_dir = "billing-server/migrations"
