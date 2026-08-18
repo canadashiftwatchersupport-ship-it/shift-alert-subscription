@@ -11,6 +11,9 @@ const PAYPAL_EVENT_TYPES = new Set([
   "BILLING.SUBSCRIPTION.CREATED",
 ]);
 
+function hasEmailDeliveryConfig(env) {
+  return Boolean(env.RESEND_API_KEY?.trim() && env.EMAIL_FROM?.trim());
+}
 function json(data, status = 200, headers = {}) {
   return new Response(JSON.stringify(data, null, 2), {
     status,
@@ -296,6 +299,72 @@ async function upsertLicense(env, license) {
   ).run();
 }
 
+function buildLicenseEmail(license) {
+  const planLabel = license.plan === "30-day" ? "30-Day Pass" : "Day Pass";
+  const accessLabel = license.plan === "30-day" ? "30 days" : "24 hours";
+
+  return {
+    subject: `Your Canada Shift Watcher ${planLabel} license`,
+    text: [
+      `Thanks for your purchase.`,
+      ``,
+      `Your license details:`,
+      `Email: ${license.email}`,
+      `License token: ${license.token}`,
+      `Plan: ${planLabel}`,
+      `Access period: ${accessLabel}`,
+      `Expires at: ${license.expiresAt}`,
+      ``,
+      `Activate your extension by opening the Canada Shift Watcher popup, entering the same email address and license token, then clicking Activate.`,
+    ].join("\n"),
+    html: `
+      <div style="font-family: Arial, sans-serif; line-height: 1.5; color: #111827;">
+        <h2 style="margin: 0 0 12px;">Your Canada Shift Watcher ${planLabel} license</h2>
+        <p>Thanks for your purchase.</p>
+        <p><strong>Email:</strong> ${license.email}</p>
+        <p><strong>License token:</strong> <code style="background:#f3f4f6;padding:2px 6px;border-radius:4px;">${license.token}</code></p>
+        <p><strong>Plan:</strong> ${planLabel}</p>
+        <p><strong>Access period:</strong> ${accessLabel}</p>
+        <p><strong>Expires at:</strong> ${license.expiresAt}</p>
+        <p>Open the Canada Shift Watcher extension, enter the same email address and license token, then click <strong>Activate</strong>.</p>
+      </div>
+    `,
+  };
+}
+
+async function sendLicenseEmail(env, license) {
+  if (!license.email || !license.token) {
+    return { sent: false, reason: "missing-email-or-token" };
+  }
+
+  if (!hasEmailDeliveryConfig(env)) {
+    return { sent: false, reason: "missing-email-config" };
+  }
+
+  const { subject, text, html } = buildLicenseEmail(license);
+  const response = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${env.RESEND_API_KEY.trim()}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      from: env.EMAIL_FROM.trim(),
+      to: [license.email],
+      subject,
+      text,
+      html,
+    }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Failed to send license email: ${response.status} ${errorText}`);
+  }
+
+  return { sent: true };
+}
+
 async function markEventSeen(env, eventId) {
   if (!eventId) return false;
   const result = await env.DB.prepare(`
@@ -386,12 +455,19 @@ async function handleGenericWebhook(request, env) {
   };
 
   await upsertLicense(env, license);
+  const emailResult = await sendLicenseEmail(env, license).catch((error) => ({
+    sent: false,
+    reason: "send-failed",
+    error: error instanceof Error ? error.message : String(error),
+  }));
 
   return json({
     ok: true,
     plan: license.plan,
     token: license.token,
     expiresAt: license.expiresAt,
+    emailSent: emailResult.sent,
+    emailStatus: emailResult,
   });
 }
 
@@ -456,6 +532,11 @@ async function handlePayPalWebhook(request, env) {
   };
 
   await upsertLicense(env, license);
+  const emailResult = await sendLicenseEmail(env, license).catch((error) => ({
+    sent: false,
+    reason: "send-failed",
+    error: error instanceof Error ? error.message : String(error),
+  }));
 
   return json({
     ok: true,
@@ -464,6 +545,8 @@ async function handlePayPalWebhook(request, env) {
     plan: license.plan,
     token: license.token,
     expiresAt: license.expiresAt,
+    emailSent: emailResult.sent,
+    emailStatus: emailResult,
   });
 }
 

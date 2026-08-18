@@ -3,3 +3,6 @@ PAYPAL_CLIENT_ID=replace_me
 PAYPAL_CLIENT_SECRET=replace_me
 PAYPAL_WEBHOOK_ID=replace_me
 PAYPAL_API_BASE=https://api-m.sandbox.paypal.com
+
+RESEND_API_KEY=replace_me
+EMAIL_FROM=Canada Shift Watcher <no-reply@example.com>

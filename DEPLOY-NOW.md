@@ -26,4 +26,4 @@ Important:
 
 - This path avoids the Render card prompt.
 - The Worker stores licenses in D1.
-- Email delivery is not bundled in this Worker version; add a separate email provider later if needed.
+- Email delivery is included in the Worker when `RESEND_API_KEY` and `EMAIL_FROM` are configured.
