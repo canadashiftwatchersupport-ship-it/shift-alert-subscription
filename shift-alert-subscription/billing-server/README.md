@@ -38,9 +38,14 @@ Set these in `wrangler.toml` under `[vars]` or with Wrangler secrets/vars:
 - `DAY_PASS_HOURS`
 - `THIRTY_DAY_ACCESS_DAYS`
 - `WEBHOOK_SECRET` — optional shared secret for local testing or custom webhook callers
+- `PAYPAL_CLIENT_ID` — required for official PayPal webhook verification
+- `PAYPAL_CLIENT_SECRET` — required for official PayPal webhook verification
+- `PAYPAL_WEBHOOK_ID` — the webhook ID from PayPal Developer Dashboard
+- `PAYPAL_API_BASE` — use `https://api-m.sandbox.paypal.com` for sandbox or `https://api-m.paypal.com` for live
 
 ## Notes
 
 - Cloudflare Workers is a no-card free deployment path.
 - D1 keeps the license data.
+- PayPal webhook delivery is verified through PayPal's `verify-webhook-signature` endpoint.
 - If you want email delivery later, add a separate email provider integration.

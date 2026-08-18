@@ -118,6 +118,12 @@ function safeInt(value, fallback) {
   return Number.isFinite(parsed) ? parsed : fallback;
 }
 
+function determinePlanByAmount(amount, dayAmount, monthAmount) {
+  if (amount === dayAmount) return "day";
+  if (amount === monthAmount) return "30-day";
+  return null;
+}
+
 async function hmacSha256Hex(secret, rawBody) {
   const key = await crypto.subtle.importKey(
     "raw",
@@ -357,7 +363,16 @@ async function handleGenericWebhook(request, env) {
   const dayHours = safeInt(env.DAY_PASS_HOURS, DEFAULT_DAY_HOURS);
   const monthDays = safeInt(env.THIRTY_DAY_ACCESS_DAYS, DEFAULT_MONTH_DAYS);
 
-  const plan = amount >= monthAmount ? "30-day" : "day";
+  const plan = determinePlanByAmount(amount, dayAmount, monthAmount);
+  if (!plan) {
+    return json(
+      {
+        ok: false,
+        message: `Unexpected payment amount. Expected ${dayAmount} or ${monthAmount}, got ${amount}.`,
+      },
+      400,
+    );
+  }
   const expiresAt = plan === "30-day" ? nowPlusDays(monthDays) : nowPlusHours(dayHours);
   const status = payload?.payment_link?.entity?.status || "paid";
   const license = {
@@ -416,7 +431,16 @@ async function handlePayPalWebhook(request, env) {
   const dayHours = safeInt(env.DAY_PASS_HOURS, DEFAULT_DAY_HOURS);
   const monthDays = safeInt(env.THIRTY_DAY_ACCESS_DAYS, DEFAULT_MONTH_DAYS);
 
-  const plan = amount >= monthAmount ? "30-day" : "day";
+  const plan = determinePlanByAmount(amount, dayAmount, monthAmount);
+  if (!plan) {
+    return json(
+      {
+        ok: false,
+        message: `Unexpected payment amount. Expected ${dayAmount} or ${monthAmount}, got ${amount}.`,
+      },
+      400,
+    );
+  }
   const expiresAt = plan === "30-day" ? nowPlusDays(monthDays) : nowPlusHours(dayHours);
   const paymentLinkId = getPayPalReferenceId(event) || crypto.randomUUID();
   const status = String(getPayPalResource(event)?.status || "COMPLETED").toLowerCase();

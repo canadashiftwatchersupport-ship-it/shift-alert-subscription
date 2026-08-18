@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Amazon Canada Shift Watcher</title>
+  <style>
+    body { width: 310px; margin: 0; padding: 18px; font: 14px system-ui, sans-serif; color: #182230; background: #f7f8fa; }
+    h1 { margin: 0 0 8px; font-size: 18px; }
+    p { margin: 0 0 14px; line-height: 1.45; color: #4b5563; }
+    label { display: flex; gap: 9px; align-items: center; margin: 12px 0; font-weight: 600; }
+    select, textarea, button { width: 100%; box-sizing: border-box; border-radius: 8px; padding: 10px; font: inherit; }
+    select, textarea { border: 1px solid #cbd5e1; background: white; }
+    textarea { min-height: 72px; resize: vertical; }
+    button { margin-top: 10px; border: 0; background: #ff9900; color: #111827; font-weight: 700; cursor: pointer; }
+    button.secondary { background: #e5e7eb; }
+    #status { margin-top: 12px; min-height: 20px; font-weight: 600; color: #166534; }
+    .note { margin-top: 10px; font-size: 12px; color: #6b7280; }
+  </style>
+</head>
+<body>
+  <h1>Canada Shift Watcher</h1>
+  <p>Watches the Amazon Canada search page and alerts you with the job location. You make the final selection and confirmation.</p>
+  <label for="jobType">Employment type</label>
+  <select id="jobType">
+    <option value="any">Any</option>
+    <option value="full-time">Full-time</option>
+    <option value="part-time">Part-time</option>
+  </select>
+  <label for="location">Preferred locations</label>
+  <textarea id="location" placeholder="Toronto, ON&#10;Vancouver, BC&#10;T5J" autocomplete="off"></textarea>
+  <label><input id="anywhereCanada" type="checkbox"> Anywhere in Canada</label>
+  <div class="note">Enter one location per line, or separate locations with commas. Choose Anywhere in Canada to disable location filtering.</div>
+  <label><input id="enabled" type="checkbox"> Watch for openings</label>
+  <label><input id="autoPrepare" type="checkbox"> Prepare first application automatically</label>
+  <label><input id="acceptAlternative" type="checkbox"> Accept an alternative schedule if selected slot is full</label>
+  <label for="interval">Refresh interval</label>
+  <select id="interval">
+    <option value="0.1667">10 seconds</option>
+    <option value="0.5">30 seconds</option>
+    <option value="1" selected>1 minute</option>
+    <option value="2">2 minutes</option>
+    <option value="5">5 minutes</option>
+  </select>
+  <button id="save">Save</button>
+  <button id="resume" class="secondary">Skip current application &amp; resume</button>
+  <button id="open" class="secondary">Open Canada job search</button>
+  <div id="status"></div>
+  <div class="note">Automatic preparation opens the first listing, selects the first available shift, clicks Create application, then stops at Submit. If enabled, an alternative schedule offered after the selected slot fills will be accepted automatically. Return to job search after rejecting it and watching resumes automatically.</div>
+  <script src="popup.js"></script>
+</body>
+</html>
