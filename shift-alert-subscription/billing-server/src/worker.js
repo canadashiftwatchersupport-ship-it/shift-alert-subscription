@@ -165,7 +165,7 @@ async function verifyGenericWebhook(request, env, rawBody) {
 }
 
 function paypalApiBase(env) {
-  return (env.PAYPAL_API_BASE || "https://api-m.sandbox.paypal.com").trim().replace(/\/+$/, "");
+  return (env.PAYPAL_API_BASE || "https://api-m.paypal.com").trim().replace(/\/+$/, "");
 }
 
 async function getPayPalAccessToken(env) {
