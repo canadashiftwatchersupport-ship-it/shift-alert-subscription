@@ -1,6 +1,6 @@
 window.CSW_CONFIG = {
-  dayPassPaymentUrl: "https://www.paypal.com/ncp/payment/WUH7F7KNYT3QU",
-  monthPassPaymentUrl: "https://www.paypal.com/ncp/payment/S2C3XG8YGPA2J",
+  dayPassPaymentUrl: "https://www.paypal.com/ncp/payment/PLB-SHAEP533EQ94",
+  monthPassPaymentUrl: "https://www.paypal.com/ncp/payment/PLB-NCFWJQH4XMNJ",
   chromeWebStoreUrl: "",
   supportEmail: "canadashiftwatcher.support@gmail.com",
   businessName: "Canada Shift Watcher",
