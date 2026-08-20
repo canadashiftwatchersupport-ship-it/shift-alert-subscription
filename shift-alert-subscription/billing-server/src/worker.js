@@ -7,6 +7,8 @@ const DEFAULT_MONTH_DAYS = 30;
 const PAYPAL_EVENT_TYPES = new Set([
   "PAYMENT.CAPTURE.COMPLETED",
   "PAYMENT.SALE.COMPLETED",
+  "CHECKOUT.ORDER.APPROVED",
+  "CHECKOUT.ORDER.COMPLETED",
   "BILLING.SUBSCRIPTION.ACTIVATED",
   "BILLING.SUBSCRIPTION.CREATED",
 ]);
@@ -81,6 +83,8 @@ function getPayPalEmail(event) {
   return (
     resource?.payer?.email_address ||
     resource?.payer?.payer_info?.email ||
+    resource?.purchase_units?.[0]?.payee?.email_address ||
+    resource?.purchase_units?.[0]?.shipping?.email_address ||
     resource?.subscriber?.email_address ||
     resource?.shipping_detail?.recipient_name ||
     resource?.email_address ||
@@ -93,6 +97,7 @@ function getPayPalAmount(event) {
   const resource = getPayPalResource(event);
   const amount =
     resource?.amount?.value ||
+    resource?.purchase_units?.[0]?.amount?.value ||
     resource?.seller_receivable_breakdown?.gross_amount?.value ||
     resource?.payments?.captures?.[0]?.amount?.value ||
     resource?.billing_info?.last_payment?.amount?.value ||
@@ -105,6 +110,8 @@ function getPayPalReferenceId(event) {
   return (
     resource?.supplementary_data?.related_ids?.order_id ||
     resource?.supplementary_data?.related_ids?.capture_id ||
+    resource?.purchase_units?.[0]?.reference_id ||
+    resource?.purchase_units?.[0]?.custom_id ||
     resource?.id ||
     resource?.billing_agreement_id ||
     event?.id ||
