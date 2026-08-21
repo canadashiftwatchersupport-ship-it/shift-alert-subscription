@@ -4,6 +4,11 @@ const DEFAULT_DAY_AMOUNT = 1500;
 const DEFAULT_MONTH_AMOUNT = 7500;
 const DEFAULT_DAY_HOURS = 24;
 const DEFAULT_MONTH_DAYS = 30;
+const CORS_HEADERS = {
+  "access-control-allow-origin": "*",
+  "access-control-allow-methods": "GET,POST,OPTIONS",
+  "access-control-allow-headers": "Content-Type, Authorization, X-Manual-License-Secret",
+};
 const PAYPAL_EVENT_TYPES = new Set([
   "PAYMENT.CAPTURE.COMPLETED",
   "PAYMENT.SALE.COMPLETED",
@@ -19,7 +24,7 @@ function hasEmailDeliveryConfig(env) {
 function json(data, status = 200, headers = {}) {
   return new Response(JSON.stringify(data, null, 2), {
     status,
-    headers: { "content-type": "application/json; charset=utf-8", ...headers },
+    headers: { "content-type": "application/json; charset=utf-8", ...CORS_HEADERS, ...headers },
   });
 }
 
@@ -665,6 +670,10 @@ async function seedSchemaOnFirstRequest(env) {
 
 export default {
   async fetch(request, env) {
+    if (request.method === "OPTIONS") {
+      return new Response(null, { status: 204, headers: CORS_HEADERS });
+    }
+
     await seedSchemaOnFirstRequest(env);
 
     const url = new URL(request.url);
