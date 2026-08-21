@@ -1,3 +1,5 @@
+importScripts("config.js");
+
 const ALARM = "shift-alert-scan";
 
 async function activeLicense() {
@@ -19,6 +21,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 });
+
+importScripts("config.js");
 
 async function verifyLicense(email, token) {
   try {
