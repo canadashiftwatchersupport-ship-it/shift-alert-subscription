@@ -45,6 +45,29 @@ Set these in `wrangler.toml` under `[vars]` or with Wrangler secrets/vars:
 - `PAYPAL_API_BASE` — use `https://api-m.sandbox.paypal.com` for sandbox or `https://api-m.paypal.com` for live
 - `RESEND_API_KEY` — required to email the license token after payment
 - `EMAIL_FROM` — the verified sender address used for license emails
+- `MANUAL_LICENSE_SECRET` — required secret for the protected manual-license fallback
+
+## Manual license fallback
+
+If a live PayPal payment is completed but PayPal does not deliver a webhook, an operator can issue the license after confirming the transaction in PayPal Activity. The Worker verifies the transaction directly with PayPal before creating a token, so this endpoint cannot be used to invent licenses.
+
+Set `MANUAL_LICENSE_SECRET` as a Cloudflare Worker secret (never commit it to GitHub):
+
+```powershell
+npx wrangler secret put MANUAL_LICENSE_SECRET
+```
+
+Then call `POST /v1/admin/licenses/manual` with a bearer token and the customer's email. Use the PayPal **capture ID** when available:
+
+```json
+{
+  "email": "customer@example.com",
+  "resourceType": "capture",
+  "resourceId": "47C64933264717119"
+}
+```
+
+For an order ID, set `resourceType` to `order`. The Worker accepts only completed CAD payments matching the configured C$15 day pass or C$75 30-day pass, stores the license idempotently, and sends the token email when Resend is configured. Repeating the same request returns the existing token instead of issuing a duplicate.
 
 ## Notes
 

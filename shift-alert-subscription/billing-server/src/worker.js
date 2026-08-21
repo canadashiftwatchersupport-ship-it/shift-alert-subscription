@@ -134,6 +134,18 @@ function determinePlanByAmount(amount, dayAmount, monthAmount) {
   return null;
 }
 
+function isValidEmail(value) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value || "").trim());
+}
+
+function isAuthorizedManualIssue(request, env) {
+  const secret = env.MANUAL_LICENSE_SECRET?.trim();
+  if (!secret) return false;
+  const bearer = request.headers.get("authorization")?.replace(/^Bearer\s+/i, "").trim();
+  const provided = bearer || request.headers.get("x-manual-license-secret")?.trim() || "";
+  return Boolean(provided) && timingSafeEqual(provided, secret);
+}
+
 async function hmacSha256Hex(secret, rawBody) {
   const key = await crypto.subtle.importKey(
     "raw",
@@ -202,6 +214,35 @@ async function getPayPalAccessToken(env) {
     throw new Error("PayPal access token response did not include an access_token.");
   }
   return String(data.access_token);
+}
+
+async function verifyPayPalManualPayment(env, resourceType, resourceId) {
+  const type = String(resourceType || "capture").toLowerCase();
+  const id = String(resourceId || "").trim();
+  if (!id || !["capture", "order"].includes(type)) {
+    throw new Error("resourceType must be capture or order, and resourceId is required.");
+  }
+
+  const token = await getPayPalAccessToken(env);
+  const path = type === "capture" ? `/v2/payments/captures/${encodeURIComponent(id)}` : `/v2/checkout/orders/${encodeURIComponent(id)}`;
+  const response = await fetch(`${paypalApiBase(env)}${path}`, {
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+  });
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`PayPal payment lookup failed: ${response.status} ${text}`);
+  }
+  const resource = await response.json();
+  const status = String(resource?.status || "").toUpperCase();
+  if (status !== "COMPLETED") throw new Error(`PayPal payment is not completed (status: ${status || "unknown"}).`);
+
+  const amount = type === "capture"
+    ? resource?.amount
+    : resource?.purchase_units?.[0]?.amount;
+  const currency = String(amount?.currency_code || "").toUpperCase();
+  const value = toMinorUnits(amount?.value, 0);
+  if (currency !== "CAD" || !value) throw new Error("PayPal payment must be a completed CAD payment.");
+  return { amount: value, currency, status, resource };
 }
 
 async function verifyPayPalWebhook(request, env, event) {
@@ -557,6 +598,61 @@ async function handlePayPalWebhook(request, env) {
   });
 }
 
+async function handleManualLicenseIssue(request, env) {
+  if (!isAuthorizedManualIssue(request, env)) {
+    return json({ ok: false, message: "Unauthorized." }, 401);
+  }
+
+  let body;
+  try {
+    body = await readJson(request);
+  } catch {
+    return json({ ok: false, message: "Invalid JSON payload." }, 400);
+  }
+
+  const email = String(body.email || "").trim().toLowerCase();
+  const resourceType = String(body.resourceType || "capture").trim().toLowerCase();
+  const resourceId = String(body.resourceId || "").trim();
+  if (!isValidEmail(email) || !resourceId) {
+    return json({ ok: false, message: "A valid email and PayPal resourceId are required." }, 400);
+  }
+
+  let payment;
+  try {
+    payment = await verifyPayPalManualPayment(env, resourceType, resourceId);
+  } catch (error) {
+    return json({ ok: false, message: error instanceof Error ? error.message : String(error) }, 400);
+  }
+
+  const dayAmount = safeInt(env.DAY_PASS_AMOUNT_PAISE, DEFAULT_DAY_AMOUNT);
+  const monthAmount = safeInt(env.THIRTY_DAY_PASS_AMOUNT_PAISE, DEFAULT_MONTH_AMOUNT);
+  const dayHours = safeInt(env.DAY_PASS_HOURS, DEFAULT_DAY_HOURS);
+  const monthDays = safeInt(env.THIRTY_DAY_ACCESS_DAYS, DEFAULT_MONTH_DAYS);
+  const plan = determinePlanByAmount(payment.amount, dayAmount, monthAmount);
+  if (!plan) {
+    return json({ ok: false, message: `Unexpected payment amount. Expected ${dayAmount} or ${monthAmount}, got ${payment.amount}.` }, 400);
+  }
+
+  const paymentLinkId = `manual:${resourceType}:${resourceId}`;
+  const existing = await env.DB.prepare("SELECT token, email, plan, expires_at FROM licenses WHERE payment_link_id = ?1 LIMIT 1").bind(paymentLinkId).first();
+  if (existing) {
+    return json({ ok: true, alreadyIssued: true, token: existing.token, email: existing.email, plan: existing.plan, expiresAt: existing.expires_at });
+  }
+
+  const license = {
+    token: crypto.randomUUID(),
+    email,
+    plan,
+    amount: payment.amount,
+    status: "manual-verified",
+    paymentLinkId,
+    expiresAt: plan === "30-day" ? nowPlusDays(monthDays) : nowPlusHours(dayHours),
+  };
+  await upsertLicense(env, license);
+  const emailResult = await sendLicenseEmail(env, license).catch((error) => ({ sent: false, reason: "send-failed", error: error instanceof Error ? error.message : String(error) }));
+  return json({ ok: true, manuallyIssued: true, plan, token: license.token, expiresAt: license.expiresAt, emailSent: emailResult.sent, emailStatus: emailResult });
+}
+
 async function seedSchemaOnFirstRequest(env) {
   try {
     await ensureSchema(env);
@@ -578,6 +674,10 @@ export default {
 
     if (request.method === "POST" && pathname === "/v1/paypal/webhook") {
       return handlePayPalWebhook(request, env);
+    }
+
+    if (request.method === "POST" && pathname === "/v1/admin/licenses/manual") {
+      return handleManualLicenseIssue(request, env);
     }
 
     if (request.method === "POST" && pathname === "/v1/razorpay/webhook") {
