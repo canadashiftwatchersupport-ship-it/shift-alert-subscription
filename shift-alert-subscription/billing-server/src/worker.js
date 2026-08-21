@@ -671,7 +671,12 @@ export default {
     const { pathname } = url;
 
     if (request.method === "GET" && pathname === "/health") {
-      return json({ ok: true, service: "billing-worker", provider: "cloudflare-workers" });
+      return json({
+        ok: true,
+        service: "billing-worker",
+        provider: "cloudflare-workers",
+        manualSecretConfigured: Boolean(env.MANUAL_LICENSE_SECRET),
+      });
     }
 
     if (request.method === "POST" && pathname === "/v1/paypal/webhook") {
