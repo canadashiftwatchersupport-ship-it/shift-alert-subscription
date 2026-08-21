@@ -16,6 +16,17 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     setWatching(Boolean(message.enabled)).then(() => sendResponse({ ok: true })).catch(error => sendResponse({ ok: false, message: error.message }));
     return true;
   }
+  if (message.type === "save-settings") {
+    chrome.storage.local.set({
+      intervalMinutes: Number(message.intervalMinutes) || 1,
+      autoPrepare: Boolean(message.autoPrepare),
+      acceptAlternative: Boolean(message.acceptAlternative),
+      jobType: message.jobType || "any",
+      locationPreference: (message.locationPreference || "").trim(),
+      anywhereCanada: Boolean(message.anywhereCanada)
+    }).then(() => sendResponse({ ok: true })).catch(error => sendResponse({ ok: false, message: error.message }));
+    return true;
+  }
   if (message.type === "jobs-found") {
     notifyJobs(message.jobs, sender.tab).then(() => sendResponse({ ok: true }));
     return true;

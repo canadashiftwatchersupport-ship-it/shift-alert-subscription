@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Canada Shift Watcher",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Canada listings alerts with optional intermediate navigation and one-time paid access.",
   "permissions": ["alarms", "notifications", "storage", "tabs"],
   "host_permissions": ["https://hiring.amazon.ca/*", "https://shift-alert-subscription.canadashiftwatcher-support.workers.dev/*"],
