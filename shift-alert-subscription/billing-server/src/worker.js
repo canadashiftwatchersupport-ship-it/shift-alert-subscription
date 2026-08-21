@@ -142,7 +142,9 @@ function isAuthorizedManualIssue(request, env) {
   const secret = env.MANUAL_LICENSE_SECRET?.trim();
   if (!secret) return false;
   const bearer = request.headers.get("authorization")?.replace(/^Bearer\s+/i, "").trim();
-  const provided = bearer || request.headers.get("x-manual-license-secret")?.trim() || "";
+  // Prefer the dedicated header so a stale collection-level Authorization
+  // header in Postman cannot override the operator's manual secret.
+  const provided = request.headers.get("x-manual-license-secret")?.trim() || bearer || "";
   return Boolean(provided) && timingSafeEqual(provided, secret);
 }
 
