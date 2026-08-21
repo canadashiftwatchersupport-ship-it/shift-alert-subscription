@@ -14,6 +14,10 @@ const anywhereCanada = document.querySelector("#anywhereCanada");
 function showSettings() {
   licenseView.hidden = true;
   settingsView.hidden = false;
+  // Explicit display styles make the transition reliable in unpacked and
+  // downloaded builds even when a browser retains the previous popup DOM.
+  licenseView.style.display = "none";
+  settingsView.style.display = "block";
   chrome.storage.local.get(["watching", "intervalMinutes", "autoPrepare", "acceptAlternative", "jobType", "locationPreference", "anywhereCanada"], data => {
     watching.checked = Boolean(data.watching);
     interval.value = String(data.intervalMinutes || 1);
