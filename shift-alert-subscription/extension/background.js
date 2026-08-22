@@ -8,6 +8,33 @@ async function activeLicense() {
   return Boolean(license?.active && new Date(license.expiresAt) > new Date());
 }
 
+async function amazonAccountAllowed(accountKey) {
+  if (!accountKey || !(await activeLicense())) return true;
+  const { license } = await chrome.storage.local.get("license");
+  if (!license.amazonAccountKey) {
+    await chrome.storage.local.set({ license: { ...license, amazonAccountKey: accountKey } });
+    return true;
+  }
+  if (license.amazonAccountKey === accountKey) return true;
+  await chrome.storage.local.set({
+    enabled: false,
+    watching: false,
+    amazonAccountMismatch: true
+  });
+  await chrome.alarms.clear(ALARM);
+  try {
+    await chrome.notifications.create("amazon-account:mismatch", {
+      type: "basic",
+      iconUrl: "icon.svg",
+      title: "Amazon account does not match",
+      message: "This license is already bound to another Amazon account. Sign in to the bound account to continue.",
+      priority: 2,
+      requireInteraction: true
+    });
+  } catch {}
+  return false;
+}
+
 async function verifyLicense(email, token) {
   try {
     const response = await fetch(`${SHIFT_ALERT_CONFIG.licenseApiBase}/v1/licenses/verify`, {
@@ -117,9 +144,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   if (message.type === "jobs-found") {
-    Promise.resolve(activeLicense()).then(ok => ok ? handleJobs(message.jobs, sender.tab) : null).then(result => sendResponse({
+    Promise.resolve(amazonAccountAllowed(message.accountKey)).then(ok => ok ? handleJobs(message.jobs, sender.tab) : null).then(result => sendResponse({
       ok: true,
-      prepareJobId: result?.requiresCardClick ? result.id : null
+      prepareJobId: result?.requiresCardClick ? result.id : null,
+      blocked: result === null && Boolean(message.accountKey)
     })).catch(error => sendResponse({ ok: false, error: String(error) }));
     return true;
   }

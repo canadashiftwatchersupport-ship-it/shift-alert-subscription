@@ -12,6 +12,23 @@
     return (result >>> 0).toString(36);
   };
 
+  // Amazon does not expose credentials. When the signed-in page visibly
+  // exposes an email/account link, use a one-way fingerprint to bind the
+  // license to that account. If no stable identifier is visible, return null
+  // rather than guessing.
+  function visibleAmazonAccountKey() {
+    const identityElement = document.querySelector("[data-account-id], [data-user-id], [data-customer-id], [data-identity-id]");
+    const identity = identityElement && ["data-account-id", "data-user-id", "data-customer-id", "data-identity-id"]
+      .map(attribute => identityElement.getAttribute(attribute)).find(Boolean);
+    if (identity) return hash(identity.trim().toLowerCase());
+    const accountElement = [...document.querySelectorAll("a,button,[role='button'],[aria-label]")]
+      .find(element => /signed in as|my account.*@|account settings.*@/i.test(clean(element.innerText || element.getAttribute("aria-label") || element.title)));
+    const accountText = clean(accountElement?.innerText || accountElement?.getAttribute("aria-label") || accountElement?.title);
+    const email = accountText.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i)?.[0];
+    if (email) return hash(email.toLowerCase());
+    return null;
+  }
+
   function extractField(text, patterns) {
     for (const pattern of patterns) {
       const match = text.match(pattern);
@@ -84,9 +101,8 @@
       }
     }
     const jobs = await scan();
-    if (!jobs.length) return;
     try {
-      const response = await chrome.runtime.sendMessage({ type: "jobs-found", jobs });
+      const response = await chrome.runtime.sendMessage({ type: "jobs-found", jobs, accountKey: visibleAmazonAccountKey() });
       if (response?.prepareJobId) {
         const element = window.__amazonJobElements?.get(response.prepareJobId);
         if (element && visible(element)) element.click();

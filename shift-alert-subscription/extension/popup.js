@@ -18,7 +18,7 @@ function showSettings() {
   // downloaded builds even when a browser retains the previous popup DOM.
   licenseView.style.display = "none";
   settingsView.style.display = "block";
-  chrome.storage.local.get(["watching", "intervalMinutes", "autoPrepare", "acceptAlternative", "jobType", "locationPreference", "anywhereCanada"], data => {
+  chrome.storage.local.get(["watching", "intervalMinutes", "autoPrepare", "acceptAlternative", "jobType", "locationPreference", "anywhereCanada", "amazonAccountMismatch", "license"], data => {
     watching.checked = Boolean(data.watching);
     interval.value = String(data.intervalMinutes || 1);
     autoPrepare.checked = Boolean(data.autoPrepare);
@@ -27,6 +27,11 @@ function showSettings() {
     locationPreference.value = data.locationPreference || "";
     anywhereCanada.checked = Boolean(data.anywhereCanada);
     locationPreference.disabled = anywhereCanada.checked;
+    if (data.amazonAccountMismatch) {
+      status.textContent = "This license is bound to a different Amazon account. Sign in to the original account to continue.";
+    } else if (!data.license?.amazonAccountKey) {
+      status.textContent = "Your license will bind to the first Amazon account identity visible after you start watching.";
+    }
   });
 }
 
