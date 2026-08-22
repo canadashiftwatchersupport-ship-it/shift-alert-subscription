@@ -127,8 +127,14 @@
     return style.display !== "none" && style.visibility !== "hidden" && box.width > 0 && box.height > 0 && !element.disabled;
   };
 
+  // Amazon renders these controls in a few different ways (plain text,
+  // aria-label, or a title). Use all three so a redesign does not strand the
+  // automation on the schedule panel.
+  const actionLabel = element => clean(element.innerText) ||
+    clean(element.getAttribute("aria-label")) ||
+    clean(element.title);
   const exactAction = label => [...document.querySelectorAll("button, a, [role='button']")]
-    .filter(element => visible(element) && clean(element.innerText).toLowerCase() === label.toLowerCase());
+    .filter(element => visible(element) && actionLabel(element).toLowerCase() === label.toLowerCase());
 
   function payForScheduleAction(button) {
     let node = button.parentElement;
@@ -193,7 +199,7 @@
     }
 
     const confirmButtons = exactAction("Confirm");
-    if (confirmButtons.length === 1 && ["schedule-panel-open", "selected-shift", "applied-schedule"].includes(applicationAutomation.phase)) {
+    if (confirmButtons.length === 1 && !["created-application", "stopped-at-submit", "unavailable"].includes(applicationAutomation.phase)) {
       await chrome.storage.local.set({
         applicationAutomation: { ...applicationAutomation, phase: "confirmed-schedule" }
       });
@@ -202,7 +208,7 @@
     }
 
     const applyButtons = exactAction("Apply");
-    if (applyButtons.length > 0 && ["schedule-panel-open", "selected-shift"].includes(applicationAutomation.phase)) {
+    if (applyButtons.length > 0 && !["created-application", "stopped-at-submit", "unavailable"].includes(applicationAutomation.phase)) {
       await chrome.storage.local.set({
         applicationAutomation: { ...applicationAutomation, phase: "applied-schedule" }
       });
@@ -212,7 +218,7 @@
     }
 
     const createButtons = exactAction("Create application");
-    if (createButtons.length === 1 && ["confirmed-schedule", "applied-schedule"].includes(applicationAutomation.phase)) {
+    if (createButtons.length === 1 && !["open-listing", "select-shift", "schedule-panel-open", "watching", "stopped-at-submit", "unavailable"].includes(applicationAutomation.phase)) {
       await chrome.storage.local.set({
         applicationAutomation: { ...applicationAutomation, phase: "created-application" }
       });
@@ -231,6 +237,9 @@
           applicationAutomation: { ...applicationAutomation, phase: "schedule-panel-open" }
         });
         selectButtons[0].click();
+        // The schedule drawer is populated asynchronously. Give React/Amazon
+        // a short window to render its Apply/Confirm controls, then retry.
+        setTimeout(prepareApplication, 250);
       }
     }
   }
