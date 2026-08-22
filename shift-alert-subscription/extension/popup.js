@@ -44,7 +44,18 @@ document.querySelector("#activate").onclick = () => {
   });
 };
 
-watching.onchange = event => chrome.runtime.sendMessage({ type: "set-watching", enabled: event.target.checked }, result => {
+function watcherSettings() {
+  return {
+    intervalMinutes: Number(interval.value),
+    autoPrepare: autoPrepare.checked,
+    acceptAlternative: acceptAlternative.checked,
+    jobType: jobType.value,
+    locationPreference: locationPreference.value.trim(),
+    anywhereCanada: anywhereCanada.checked
+  };
+}
+
+watching.onchange = event => chrome.runtime.sendMessage({ type: "set-watching", enabled: event.target.checked, ...watcherSettings(), resetSeen: true }, result => {
   if (chrome.runtime.lastError || !result?.ok) {
     event.target.checked = false;
     status.textContent = result?.message || "Activate a license first.";
@@ -52,17 +63,16 @@ watching.onchange = event => chrome.runtime.sendMessage({ type: "set-watching", 
 });
 
 document.querySelector("#save").onclick = () => chrome.runtime.sendMessage({
-  type: "save-settings",
-  intervalMinutes: Number(interval.value),
-  autoPrepare: autoPrepare.checked,
-  acceptAlternative: acceptAlternative.checked,
-  jobType: jobType.value,
-  locationPreference: locationPreference.value.trim(),
-  anywhereCanada: anywhereCanada.checked
-}, result => { status.textContent = result?.ok ? "Settings saved." : (result?.message || "Could not save settings."); });
+  type: "set-enabled", enabled: watching.checked, ...watcherSettings(), resetSeen: true
+}, result => { status.textContent = result?.ok ? (watching.checked ? "Watcher is running and scanning now." : "Watcher is stopped.") : (result?.message || "Could not save settings."); });
 
 anywhereCanada.onchange = () => { locationPreference.disabled = anywhereCanada.checked; };
 document.querySelector("#open").onclick = () => { chrome.tabs.create({ url: "https://hiring.amazon.ca/app#/jobSearch" }); window.close(); };
+const resume = document.querySelector("#resume");
+if (resume) resume.onclick = () => chrome.runtime.sendMessage({ type: "resume-watching" }, result => {
+  if (result?.ok) { watching.checked = true; status.textContent = "Current application skipped. Watcher resumed."; }
+  else status.textContent = result?.message || "Could not resume the watcher.";
+});
 document.querySelectorAll("[data-plan]").forEach(button => button.onclick = () => {
   const url = button.dataset.plan === "day" ? SHIFT_ALERT_CONFIG.dayPassCheckoutUrl : SHIFT_ALERT_CONFIG.monthlyCheckoutUrl;
   if (url) chrome.tabs.create({ url }); else status.textContent = "Checkout links are not configured yet.";
