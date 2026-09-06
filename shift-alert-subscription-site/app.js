@@ -55,8 +55,8 @@
 
   setText("[data-business-name]", businessName);
   setEmailLinks("[data-support-email]", supportEmail);
-  setHref("[data-payment='day']", config.dayPassPaymentUrl, "Buy C$15 Day Pass");
-  setHref("[data-payment='month']", config.monthPassPaymentUrl, "Buy C$75 30-Day Pass");
+  setHref("[data-payment='day']", config.dayPassPaymentUrl, "Buy C$27 7-Day Pass");
+  setHref("[data-payment='month']", config.monthPassPaymentUrl, "Buy C$72 30-Day Pass");
   setHref("[data-chrome-store]", chromeUrl, "Add to Chrome");
 
   document.querySelectorAll("a.is-disabled").forEach((link) => {

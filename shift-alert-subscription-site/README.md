@@ -13,14 +13,14 @@ This folder contains the public website for Canada Shift Watcher, an independent
 
 ## Pricing shown on the site
 
-- Day Activation: C$15 for 24-hour access, one-time payment
-- 30-Day Activation: C$75 for 30-day access, one-time payment
+- Weekly Activation: C$27 for 7-day access, one-time payment
+- 30-Day Activation: C$72 for 30-day access, one-time payment
 
 ## Config values to edit
 
 Open `config.js` and replace:
 
-- `dayPassPaymentUrl` with your Day Pass hosted checkout link
+- `dayPassPaymentUrl` with your 7-Day Pass hosted checkout link
 - `monthPassPaymentUrl` with your 30-Day Pass hosted checkout link
 - `chromeWebStoreUrl` with your Chrome Web Store listing URL
 - `supportEmail` with your support email address
@@ -48,7 +48,7 @@ Upload these files together:
 ## Before sending for payment review
 
 1. Confirm every navigation and footer link opens correctly.
-2. Confirm both prices show C$15 and C$75, not USD.
+2. Confirm both prices show C$27 and C$72, not USD.
 3. Confirm payment buttons are not hard-coded to fake URLs.
 4. Confirm privacy, terms, refund, and contact pages are publicly reachable.
 5. Confirm the site language does not promise hiring, shifts, or successful applications.

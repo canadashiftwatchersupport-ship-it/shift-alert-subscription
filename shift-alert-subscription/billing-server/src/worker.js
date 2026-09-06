@@ -1,8 +1,8 @@
 const textEncoder = new TextEncoder();
 
-const DEFAULT_DAY_AMOUNT = 1500;
-const DEFAULT_MONTH_AMOUNT = 7500;
-const DEFAULT_DAY_HOURS = 24;
+const DEFAULT_WEEK_AMOUNT = 2700;
+const DEFAULT_MONTH_AMOUNT = 7200;
+const DEFAULT_WEEK_HOURS = 168;
 const DEFAULT_MONTH_DAYS = 30;
 const CORS_HEADERS = {
   "access-control-allow-origin": "*",
@@ -133,8 +133,8 @@ function safeInt(value, fallback) {
   return Number.isFinite(parsed) ? parsed : fallback;
 }
 
-function determinePlanByAmount(amount, dayAmount, monthAmount) {
-  if (amount === dayAmount) return "day";
+function determinePlanByAmount(amount, weekAmount, monthAmount) {
+  if (amount === weekAmount) return "week";
   if (amount === monthAmount) return "30-day";
   return null;
 }
@@ -355,8 +355,8 @@ async function upsertLicense(env, license) {
 }
 
 function buildLicenseEmail(license) {
-  const planLabel = license.plan === "30-day" ? "30-Day Pass" : "Day Pass";
-  const accessLabel = license.plan === "30-day" ? "30 days" : "24 hours";
+  const planLabel = license.plan === "30-day" ? "30-Day Pass" : license.plan === "week" ? "7-Day Pass" : "Day Pass";
+  const accessLabel = license.plan === "30-day" ? "30 days" : license.plan === "week" ? "7 days" : "24 hours";
 
   return {
     subject: `Your Canada Shift Watcher ${planLabel} license`,
@@ -482,28 +482,28 @@ async function handleGenericWebhook(request, env) {
   const paymentLinkId = getPaymentLinkId(payload) || crypto.randomUUID();
   const amount = getPaymentAmount(payload);
   const email = getEmailFromPayload(payload);
-  const dayAmount = safeInt(env.DAY_PASS_AMOUNT_PAISE, DEFAULT_DAY_AMOUNT);
+  const weekAmount = safeInt(env.WEEK_PASS_AMOUNT_PAISE, DEFAULT_WEEK_AMOUNT);
   const monthAmount = safeInt(env.THIRTY_DAY_PASS_AMOUNT_PAISE, DEFAULT_MONTH_AMOUNT);
-  const dayHours = safeInt(env.DAY_PASS_HOURS, DEFAULT_DAY_HOURS);
+  const weekHours = safeInt(env.WEEK_PASS_HOURS, DEFAULT_WEEK_HOURS);
   const monthDays = safeInt(env.THIRTY_DAY_ACCESS_DAYS, DEFAULT_MONTH_DAYS);
 
-  const plan = determinePlanByAmount(amount, dayAmount, monthAmount);
+  const plan = determinePlanByAmount(amount, weekAmount, monthAmount);
   if (!plan) {
     return json(
       {
         ok: false,
-        message: `Unexpected payment amount. Expected ${dayAmount} or ${monthAmount}, got ${amount}.`,
+        message: `Unexpected payment amount. Expected ${weekAmount} or ${monthAmount}, got ${amount}.`,
       },
       400,
     );
   }
-  const expiresAt = plan === "30-day" ? nowPlusDays(monthDays) : nowPlusHours(dayHours);
+  const expiresAt = plan === "30-day" ? nowPlusDays(monthDays) : nowPlusHours(weekHours);
   const status = payload?.payment_link?.entity?.status || "paid";
   const license = {
     token: crypto.randomUUID(),
     email: email || "",
     plan,
-    amount: amount || (plan === "30-day" ? monthAmount : dayAmount),
+    amount: amount || (plan === "30-day" ? monthAmount : weekAmount),
     status,
     paymentLinkId,
     expiresAt,
@@ -557,22 +557,22 @@ async function handlePayPalWebhook(request, env) {
   }
 
   const email = getPayPalEmail(event);
-  const dayAmount = safeInt(env.DAY_PASS_AMOUNT_PAISE, DEFAULT_DAY_AMOUNT);
+  const weekAmount = safeInt(env.WEEK_PASS_AMOUNT_PAISE, DEFAULT_WEEK_AMOUNT);
   const monthAmount = safeInt(env.THIRTY_DAY_PASS_AMOUNT_PAISE, DEFAULT_MONTH_AMOUNT);
-  const dayHours = safeInt(env.DAY_PASS_HOURS, DEFAULT_DAY_HOURS);
+  const weekHours = safeInt(env.WEEK_PASS_HOURS, DEFAULT_WEEK_HOURS);
   const monthDays = safeInt(env.THIRTY_DAY_ACCESS_DAYS, DEFAULT_MONTH_DAYS);
 
-  const plan = determinePlanByAmount(amount, dayAmount, monthAmount);
+  const plan = determinePlanByAmount(amount, weekAmount, monthAmount);
   if (!plan) {
     return json(
       {
         ok: false,
-        message: `Unexpected payment amount. Expected ${dayAmount} or ${monthAmount}, got ${amount}.`,
+        message: `Unexpected payment amount. Expected ${weekAmount} or ${monthAmount}, got ${amount}.`,
       },
       400,
     );
   }
-  const expiresAt = plan === "30-day" ? nowPlusDays(monthDays) : nowPlusHours(dayHours);
+  const expiresAt = plan === "30-day" ? nowPlusDays(monthDays) : nowPlusHours(weekHours);
   const paymentLinkId = getPayPalReferenceId(event) || crypto.randomUUID();
   const status = String(getPayPalResource(event)?.status || "COMPLETED").toLowerCase();
 
@@ -580,7 +580,7 @@ async function handlePayPalWebhook(request, env) {
     token: crypto.randomUUID(),
     email: email || "",
     plan,
-    amount: amount || (plan === "30-day" ? monthAmount : dayAmount),
+    amount: amount || (plan === "30-day" ? monthAmount : weekAmount),
     status,
     paymentLinkId,
     expiresAt,
@@ -631,13 +631,13 @@ async function handleManualLicenseIssue(request, env) {
     return json({ ok: false, message: error instanceof Error ? error.message : String(error) }, 400);
   }
 
-  const dayAmount = safeInt(env.DAY_PASS_AMOUNT_PAISE, DEFAULT_DAY_AMOUNT);
+  const weekAmount = safeInt(env.WEEK_PASS_AMOUNT_PAISE, DEFAULT_WEEK_AMOUNT);
   const monthAmount = safeInt(env.THIRTY_DAY_PASS_AMOUNT_PAISE, DEFAULT_MONTH_AMOUNT);
-  const dayHours = safeInt(env.DAY_PASS_HOURS, DEFAULT_DAY_HOURS);
+  const weekHours = safeInt(env.WEEK_PASS_HOURS, DEFAULT_WEEK_HOURS);
   const monthDays = safeInt(env.THIRTY_DAY_ACCESS_DAYS, DEFAULT_MONTH_DAYS);
-  const plan = determinePlanByAmount(payment.amount, dayAmount, monthAmount);
+  const plan = determinePlanByAmount(payment.amount, weekAmount, monthAmount);
   if (!plan) {
-    return json({ ok: false, message: `Unexpected payment amount. Expected ${dayAmount} or ${monthAmount}, got ${payment.amount}.` }, 400);
+    return json({ ok: false, message: `Unexpected payment amount. Expected ${weekAmount} or ${monthAmount}, got ${payment.amount}.` }, 400);
   }
 
   const paymentLinkId = `manual:${resourceType}:${resourceId}`;
@@ -653,7 +653,7 @@ async function handleManualLicenseIssue(request, env) {
     amount: payment.amount,
     status: "manual-verified",
     paymentLinkId,
-    expiresAt: plan === "30-day" ? nowPlusDays(monthDays) : nowPlusHours(dayHours),
+    expiresAt: plan === "30-day" ? nowPlusDays(monthDays) : nowPlusHours(weekHours),
   };
   await upsertLicense(env, license);
   const emailResult = await sendLicenseEmail(env, license).catch((error) => ({ sent: false, reason: "send-failed", error: error instanceof Error ? error.message : String(error) }));

@@ -34,9 +34,9 @@ This folder contains the Cloudflare Worker + D1 version of the billing server.
 
 Set these in `wrangler.toml` under `[vars]` or with Wrangler secrets/vars:
 
-- `DAY_PASS_AMOUNT_PAISE`
+- `WEEK_PASS_AMOUNT_PAISE`
 - `THIRTY_DAY_PASS_AMOUNT_PAISE`
-- `DAY_PASS_HOURS`
+- `WEEK_PASS_HOURS`
 - `THIRTY_DAY_ACCESS_DAYS`
 - `WEBHOOK_SECRET` — optional shared secret for local testing or custom webhook callers
 - `PAYPAL_CLIENT_ID` — required for official PayPal webhook verification
@@ -67,7 +67,7 @@ Then call `POST /v1/admin/licenses/manual` with a bearer token and the customer'
 }
 ```
 
-For an order ID, set `resourceType` to `order`. The Worker accepts only completed CAD payments matching the configured C$15 day pass or C$75 30-day pass, stores the license idempotently, and sends the token email when Resend is configured. Repeating the same request returns the existing token instead of issuing a duplicate.
+For an order ID, set `resourceType` to `order`. The Worker accepts only completed CAD payments matching the configured C$27 weekly pass or C$72 30-weekly pass, stores the license idempotently, and sends the token email when Resend is configured. Repeating the same request returns the existing token instead of issuing a duplicate.
 
 ## Notes
 
