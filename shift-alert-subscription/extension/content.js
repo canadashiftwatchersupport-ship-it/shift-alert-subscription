@@ -41,7 +41,7 @@
     const noJobs = /no jobs available that match your search/i.test(document.body.innerText);
     if (noJobs) return [];
 
-    const preferences = await chrome.storage.local.get(["jobType", "locationPreference", "anywhereCanada"]);
+    const preferences = await chrome.storage.local.get(["jobType", "shiftType", "exactShiftStart", "exactShiftEnd", "locationPreference", "anywhereCanada"]);
     const requestedType = preferences.jobType || "any";
     const requestedLocations = (preferences.anywhereCanada ? "" : (preferences.locationPreference || ""))
       .split(/[\n,;]+/)
@@ -66,6 +66,8 @@
       const text = clean(card?.innerText || link.innerText);
       if (text.length < 15 || text.length > 2500) continue;
       const comparable = text.toLowerCase();
+      const shiftKind = CSW_SHIFT_FILTER.classify(text);
+      if (["day", "night"].includes(preferences.shiftType) && ["day", "night"].includes(shiftKind) && shiftKind !== preferences.shiftType) continue;
       if (requestedLocations.length && !requestedLocations.some(location => comparable.includes(location))) continue;
       if (requestedType === "full-time" && !/\bfull[\s-]?time\b/i.test(text)) continue;
       if (requestedType === "part-time" && !/\bpart[\s-]?time\b/i.test(text)) continue;
@@ -81,7 +83,7 @@
         /((?:day|night|evening|weekend|overnight)\s+shift[^|•\n]{0,80})/i
       ]);
       const title = clean(link.innerText).slice(0, 140);
-      const url = link.href || location.href;
+      const url = link.href || window.location.href;
       const id = hash(`${url}|${location}|${schedule}|${pay}|${title}`);
       if (used.has(id)) continue;
       used.add(id);
@@ -157,9 +159,59 @@
     }, null)?.button || buttons[0];
   }
 
+  function scheduleText(button, needsTimes) {
+    let node = button;
+    for (let depth = 0; node && node !== document.body && depth < 8; depth++, node = node.parentElement) {
+      const actions = [...node.querySelectorAll("button, a, [role='button']")]
+        .filter(element => visible(element) && /^(apply|confirm|select shift|accept (?:this |alternative )?offer)$/i.test(actionLabel(element)));
+      if (actions.some(action => action !== button)) break;
+      const text = clean(node.innerText);
+      if (needsTimes ? CSW_SHIFT_FILTER.ranges(text).length > 0 : CSW_SHIFT_FILTER.classify(text) !== "unknown") return text;
+    }
+    return "";
+  }
+
+  function scheduleMatches(button, preference, from, to) {
+    if ((!preference || preference === "any") && !from && !to) return true;
+    return CSW_SHIFT_FILTER.matches(scheduleText(button, Boolean(from || to)), preference, from, to);
+  }
+
+  let preparationBusy = false;
+  const clickedActions = new WeakSet();
+  function clickOnce(button) {
+    if (clickedActions.has(button)) return;
+    clickedActions.add(button);
+    button.click();
+  }
   async function prepareApplication() {
-    const { autoPrepare, acceptAlternative, applicationAutomation } = await chrome.storage.local.get(["autoPrepare", "acceptAlternative", "applicationAutomation"]);
+    if (preparationBusy) return;
+    preparationBusy = true;
+    try { await prepareApplicationStep(); }
+    finally { preparationBusy = false; }
+  }
+
+  async function prepareApplicationStep() {
+    const { autoPrepare, acceptAlternative, applicationAutomation, shiftType = "any", exactShiftStart, exactShiftEnd } = await chrome.storage.local.get(["autoPrepare", "acceptAlternative", "applicationAutomation", "shiftType", "exactShiftStart", "exactShiftEnd"]);
     if (!autoPrepare || !applicationAutomation?.active) return;
+
+    // Final boundary: never click Submit. Stop as soon as it is visible.
+    if (exactAction("Submit").length > 0 || exactAction("Submit application").length > 0) {
+      await chrome.storage.local.set({
+        applicationAutomation: { ...applicationAutomation, active: false, phase: "stopped-at-submit" }
+      });
+      chrome.runtime.sendMessage({ type: "stopped-at-submit" });
+      return;
+    }
+
+    const identityStep = [...document.querySelectorAll("h1, h2, h3, [role='heading'], button, [role='button']")]
+      .some(element => visible(element) && /^(?:(?:start|complete|begin) )?(?:identity verification|verify your identity|identity check|take a selfie|upload (?:your )?(?:id|identity document))$/i.test(actionLabel(element)));
+    if (identityStep) {
+      await chrome.storage.local.set({ applicationAutomation: { ...applicationAutomation, active: false, phase: "stopped-at-identity" } });
+      return;
+    }
+    if (applicationAutomation.phase === "agreed-shift-timing") return;
+    const agreeButtons = exactAction("I agree");
+    if (agreeButtons.length) return;
 
     const alternativeButtons = [
       ...exactAction("Accept offer"),
@@ -167,11 +219,11 @@
       ...exactAction("Accept alternative offer"),
       ...exactAction("Select shift")
     ];
-    if (acceptAlternative && alternativeButtons.length === 1 && applicationAutomation.phase === "created-application") {
+    if (acceptAlternative && alternativeButtons.length === 1 && scheduleMatches(alternativeButtons[0], shiftType, exactShiftStart, exactShiftEnd) && applicationAutomation.phase === "created-application") {
       await chrome.storage.local.set({
         applicationAutomation: { ...applicationAutomation, phase: "accepted-alternative" }
       });
-      alternativeButtons[0].click();
+      clickOnce(alternativeButtons[0]);
       return;
     }
 
@@ -190,40 +242,41 @@
       return;
     }
 
-    // Final boundary: never click Submit. Stop as soon as it is visible.
-    if (exactAction("Submit").length > 0 || exactAction("Submit application").length > 0) {
-      await chrome.storage.local.set({
-        applicationAutomation: { ...applicationAutomation, active: false, phase: "stopped-at-submit" }
-      });
-      chrome.runtime.sendMessage({ type: "stopped-at-submit" });
+    const scheduleControls = [...exactAction("Confirm"), ...exactAction("Apply")];
+    const filtering = (shiftType !== "any") || exactShiftStart || exactShiftEnd;
+    if (filtering && scheduleControls.length && !["created-application", "accepted-alternative"].includes(applicationAutomation.phase) &&
+        scheduleControls.every(button => scheduleText(button, Boolean(exactShiftStart || exactShiftEnd))) &&
+        !scheduleControls.some(button => scheduleMatches(button, shiftType, exactShiftStart, exactShiftEnd))) {
+      await chrome.storage.local.set({ applicationAutomation: { ...applicationAutomation, active: false, phase: "no-matching-schedule" } });
+      await chrome.runtime.sendMessage({ type: "resume-watching" });
+      location.href = "https://hiring.amazon.ca/app#/jobSearch";
       return;
     }
-
     const confirmButtons = exactAction("Confirm");
-    if (confirmButtons.length === 1 && !["created-application", "stopped-at-submit", "unavailable"].includes(applicationAutomation.phase)) {
+    if (confirmButtons.length === 1 && scheduleMatches(confirmButtons[0], shiftType, exactShiftStart, exactShiftEnd) && !["created-application", "stopped-at-submit", "unavailable"].includes(applicationAutomation.phase)) {
       await chrome.storage.local.set({
         applicationAutomation: { ...applicationAutomation, phase: "confirmed-schedule" }
       });
-      confirmButtons[0].click();
+      clickOnce(confirmButtons[0]);
       return;
     }
 
-    const applyButtons = exactAction("Apply");
+    const applyButtons = exactAction("Apply").filter(button => scheduleMatches(button, shiftType, exactShiftStart, exactShiftEnd));
     if (applyButtons.length > 0 && !["created-application", "stopped-at-submit", "unavailable"].includes(applicationAutomation.phase)) {
       await chrome.storage.local.set({
         applicationAutomation: { ...applicationAutomation, phase: "applied-schedule" }
       });
       const applyButton = highestPayingAction(applyButtons);
-      applyButton.click();
+      clickOnce(applyButton);
       return;
     }
 
     const createButtons = exactAction("Create application");
-    if (createButtons.length === 1 && !["open-listing", "select-shift", "schedule-panel-open", "watching", "stopped-at-submit", "unavailable"].includes(applicationAutomation.phase)) {
+    if (createButtons.length === 1 && ["confirmed-schedule", "applied-schedule", "accepted-alternative"].includes(applicationAutomation.phase)) {
       await chrome.storage.local.set({
         applicationAutomation: { ...applicationAutomation, phase: "created-application" }
       });
-      createButtons[0].click();
+      clickOnce(createButtons[0]);
       return;
     }
 
@@ -237,7 +290,7 @@
         await chrome.storage.local.set({
           applicationAutomation: { ...applicationAutomation, phase: "schedule-panel-open" }
         });
-        selectButtons[0].click();
+        clickOnce(selectButtons[0]);
         // The schedule drawer is populated asynchronously. Give React/Amazon
         // a short window to render its Apply/Confirm controls, then retry.
         setTimeout(prepareApplication, 250);

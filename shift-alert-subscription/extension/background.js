@@ -1,3 +1,4 @@
+importScripts("shift-filter.js");
 importScripts("config.js");
 
 const SEARCH_URL = "https://hiring.amazon.ca/app#/jobSearch";
@@ -66,6 +67,10 @@ async function setAlarm(enabled, intervalMinutes = 1) {
 }
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (["set-enabled", "set-watching", "save-settings"].includes(message.type) && (message.exactShiftStart || message.exactShiftEnd) && (CSW_SHIFT_FILTER.minutes(message.exactShiftStart) === null || CSW_SHIFT_FILTER.minutes(message.exactShiftEnd) === null)) {
+    sendResponse({ ok: false, message: "Enter both exact start and end times, or leave both blank." });
+    return;
+  }
   if (message.type === "save-license") {
     verifyLicense(message.email, message.token).then(sendResponse);
     return true;
@@ -80,6 +85,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         autoPrepare: Boolean(message.autoPrepare),
         acceptAlternative: Boolean(message.acceptAlternative),
         jobType: message.jobType || "any",
+        shiftType: ["day", "night"].includes(message.shiftType) ? message.shiftType : "any",
+        exactShiftStart: message.exactShiftStart || "",
+        exactShiftEnd: message.exactShiftEnd || "",
         locationPreference: (message.locationPreference || "").trim(),
         anywhereCanada: Boolean(message.anywhereCanada),
         ...(message.enabled && message.resetSeen ? { seen: {} } : {})
@@ -114,6 +122,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         autoPrepare: Boolean(message.autoPrepare),
         acceptAlternative: Boolean(message.acceptAlternative),
         jobType: message.jobType || "any",
+        shiftType: ["day", "night"].includes(message.shiftType) ? message.shiftType : "any",
+        exactShiftStart: message.exactShiftStart || "",
+        exactShiftEnd: message.exactShiftEnd || "",
         locationPreference: (message.locationPreference || "").trim(),
         anywhereCanada: Boolean(message.anywhereCanada)
       });

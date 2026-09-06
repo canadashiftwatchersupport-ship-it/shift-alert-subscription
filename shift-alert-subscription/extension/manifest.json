@@ -1,11 +1,11 @@
 {
   "manifest_version": 3,
   "name": "Canada Shift Watcher",
-  "version": "1.0.2",
+  "version": "1.0.8",
   "description": "Canada listings alerts with optional intermediate navigation and one-time paid access.",
   "permissions": ["alarms", "notifications", "storage", "tabs"],
   "host_permissions": ["https://hiring.amazon.ca/*", "https://shift-alert-subscription.canadashiftwatcher-support.workers.dev/*"],
   "background": { "service_worker": "background.js" },
   "action": { "default_popup": "popup.html", "default_title": "Canada Shift Watcher" },
-  "content_scripts": [{ "matches": ["https://hiring.amazon.ca/*"], "js": ["content.js"], "run_at": "document_idle" }]
+  "content_scripts": [{ "matches": ["https://hiring.amazon.ca/*"], "js": ["shift-filter.js", "content.js"], "run_at": "document_idle" }]
 }

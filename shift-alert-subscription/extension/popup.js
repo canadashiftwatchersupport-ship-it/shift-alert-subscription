@@ -7,6 +7,10 @@ const watching = document.querySelector("#watching");
 const interval = document.querySelector("#interval");
 const autoPrepare = document.querySelector("#autoPrepare");
 const acceptAlternative = document.querySelector("#acceptAlternative");
+const exactShiftStart = document.querySelector("#exactShiftStart");
+const exactShiftEnd = document.querySelector("#exactShiftEnd");
+
+const shiftType = document.querySelector("#shiftType");
 const jobType = document.querySelector("#jobType");
 const locationPreference = document.querySelector("#location");
 const anywhereCanada = document.querySelector("#anywhereCanada");
@@ -18,12 +22,16 @@ function showSettings() {
   // downloaded builds even when a browser retains the previous popup DOM.
   licenseView.style.display = "none";
   settingsView.style.display = "block";
-  chrome.storage.local.get(["watching", "intervalMinutes", "autoPrepare", "acceptAlternative", "jobType", "locationPreference", "anywhereCanada", "amazonAccountMismatch", "license"], data => {
+  chrome.storage.local.get(["watching", "intervalMinutes", "autoPrepare", "acceptAlternative", "jobType", "shiftType", "exactShiftStart", "exactShiftEnd", "locationPreference", "anywhereCanada", "amazonAccountMismatch", "license"], data => {
     watching.checked = Boolean(data.watching);
     interval.value = String(data.intervalMinutes || 1);
     autoPrepare.checked = Boolean(data.autoPrepare);
     acceptAlternative.checked = Boolean(data.acceptAlternative);
     jobType.value = data.jobType || "any";
+    shiftType.value = ["day", "night"].includes(data.shiftType) ? data.shiftType : "any";
+    exactShiftStart.value = data.exactShiftStart || "";
+    exactShiftEnd.value = data.exactShiftEnd || "";
+
     locationPreference.value = data.locationPreference || "";
     anywhereCanada.checked = Boolean(data.anywhereCanada);
     locationPreference.disabled = anywhereCanada.checked;
@@ -55,6 +63,9 @@ function watcherSettings() {
     autoPrepare: autoPrepare.checked,
     acceptAlternative: acceptAlternative.checked,
     jobType: jobType.value,
+    shiftType: shiftType.value,
+    exactShiftStart: exactShiftStart.value,
+    exactShiftEnd: exactShiftEnd.value,
     locationPreference: locationPreference.value.trim(),
     anywhereCanada: anywhereCanada.checked
   };
@@ -71,6 +82,7 @@ document.querySelector("#save").onclick = () => chrome.runtime.sendMessage({
   type: "set-enabled", enabled: watching.checked, ...watcherSettings(), resetSeen: true
 }, result => { status.textContent = result?.ok ? (watching.checked ? "Watcher is running and scanning now." : "Watcher is stopped.") : (result?.message || "Could not save settings."); });
 
+document.querySelector("#clearTimes").onclick = () => { exactShiftStart.value = ""; exactShiftEnd.value = ""; status.textContent = "Exact times cleared. Click Save to apply."; };
 anywhereCanada.onchange = () => { locationPreference.disabled = anywhereCanada.checked; };
 document.querySelector("#open").onclick = () => { chrome.tabs.create({ url: "https://hiring.amazon.ca/app#/jobSearch" }); window.close(); };
 const resume = document.querySelector("#resume");
