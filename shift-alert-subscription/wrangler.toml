@@ -2,6 +2,9 @@ name = "shift-alert-subscription"
 main = "billing-server/src/worker.js"
 compatibility_date = "2026-08-14"
 
+# Preserve runtime text variables configured in the Cloudflare dashboard.
+keep_vars = true
+
 [vars]
 WEEK_PASS_AMOUNT_PAISE = "2700"
 THIRTY_DAY_PASS_AMOUNT_PAISE = "7200"
