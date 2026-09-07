@@ -278,6 +278,95 @@ async function getPayPalCompletedOrder(env, orderId) {
   return order;
 }
 
+function paypalPlanDetails(env, plan) {
+  if (plan === "week") {
+    return { plan, value: safeInt(env.WEEK_PASS_AMOUNT_PAISE, DEFAULT_WEEK_AMOUNT), description: "Canada Shift Watcher 7-Day Pass" };
+  }
+  if (plan === "30-day") {
+    return { plan, value: safeInt(env.THIRTY_DAY_PASS_AMOUNT_PAISE, DEFAULT_MONTH_AMOUNT), description: "Canada Shift Watcher 30-Day Pass" };
+  }
+  return null;
+}
+
+async function createPayPalOrder(request, env) {
+  let body;
+  try { body = await readJson(request); }
+  catch { return json({ ok: false, message: "Invalid JSON payload." }, 400); }
+  const details = paypalPlanDetails(env, String(body.plan || ""));
+  if (!details) return json({ ok: false, message: "Select a valid access plan." }, 400);
+
+  const accessToken = await getPayPalAccessToken(env);
+  const response = await fetch(`${paypalApiBase(env)}/v2/checkout/orders`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+      "PayPal-Request-Id": crypto.randomUUID(),
+    },
+    body: JSON.stringify({
+      intent: "CAPTURE",
+      purchase_units: [{
+        reference_id: details.plan,
+        custom_id: `canada-shift-watcher:${details.plan}`,
+        description: details.description,
+        amount: { currency_code: "CAD", value: (details.value / 100).toFixed(2) },
+      }],
+    }),
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok || !data?.id) return json({ ok: false, message: data?.message || "PayPal could not create the order." }, 502);
+  return json({ ok: true, id: data.id });
+}
+
+async function capturePayPalOrder(request, env, orderId) {
+  const id = String(orderId || "").trim();
+  if (!/^[A-Z0-9]+$/i.test(id)) return json({ ok: false, message: "Invalid PayPal order ID." }, 400);
+
+  const accessToken = await getPayPalAccessToken(env);
+  const response = await fetch(`${paypalApiBase(env)}/v2/checkout/orders/${encodeURIComponent(id)}/capture`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+      "PayPal-Request-Id": `csw-capture-${id}`,
+    },
+  });
+  const order = await response.json().catch(() => ({}));
+  if (!response.ok || String(order?.status || "").toUpperCase() !== "COMPLETED") {
+    return json({ ok: false, message: order?.message || "PayPal could not complete the payment." }, 502);
+  }
+
+  const purchaseUnit = order?.purchase_units?.[0] || {};
+  const capture = purchaseUnit?.payments?.captures?.find?.((item) => String(item?.status || "").toUpperCase() === "COMPLETED");
+  const amount = toMinorUnits(capture?.amount?.value || purchaseUnit?.amount?.value, 0);
+  const currency = String(capture?.amount?.currency_code || purchaseUnit?.amount?.currency_code || "").toUpperCase();
+  const plan = String(purchaseUnit?.reference_id || "");
+  const expected = paypalPlanDetails(env, plan);
+  const email = String(order?.payer?.email_address || "").trim().toLowerCase();
+  if (!capture || currency !== "CAD" || !expected || amount !== expected.value || !isValidEmail(email)) {
+    return json({ ok: false, message: "The completed PayPal order could not be validated." }, 422);
+  }
+
+  const expiresAt = plan === "30-day"
+    ? nowPlusDays(safeInt(env.THIRTY_DAY_ACCESS_DAYS, DEFAULT_MONTH_DAYS))
+    : nowPlusHours(safeInt(env.WEEK_PASS_HOURS, DEFAULT_WEEK_HOURS));
+  let license = await upsertLicense(env, {
+    token: crypto.randomUUID(), email, plan, amount, status: "completed", paymentLinkId: id, expiresAt,
+  });
+  let emailResult;
+  try { emailResult = await sendLicenseEmail(env, license); }
+  catch (error) {
+    return json({
+      ok: false,
+      paymentCompleted: true,
+      message: "Payment completed and the license was created, but the email could not be sent. Contact support with the PayPal order ID.",
+      orderId: id,
+      error: error instanceof Error ? error.message : String(error),
+    }, 503);
+  }
+  return json({ ok: true, orderId: id, email: license.email, token: license.token, plan: license.plan, expiresAt: license.expiresAt, emailStatus: emailResult });
+}
+
 async function verifyPayPalWebhook(request, env, event) {
   const webhookId = env.PAYPAL_WEBHOOK_ID?.trim();
   if (!webhookId) {
@@ -771,6 +860,21 @@ export default {
         provider: "cloudflare-workers",
         manualSecretConfigured: Boolean(env.MANUAL_LICENSE_SECRET),
       });
+    }
+
+    if (request.method === "GET" && pathname === "/v1/paypal/config") {
+      return json({ clientId: env.PAYPAL_CLIENT_ID || "", currency: "CAD" });
+    }
+
+    if (request.method === "POST" && pathname === "/v1/paypal/orders") {
+      try { return await createPayPalOrder(request, env); }
+      catch (error) { return json({ ok: false, message: error instanceof Error ? error.message : "PayPal checkout unavailable." }, 502); }
+    }
+
+    const captureMatch = pathname.match(/^\/v1\/paypal\/orders\/([A-Z0-9]+)\/capture$/i);
+    if (request.method === "POST" && captureMatch) {
+      try { return await capturePayPalOrder(request, env, captureMatch[1]); }
+      catch (error) { return json({ ok: false, message: error instanceof Error ? error.message : "PayPal checkout unavailable." }, 502); }
     }
 
     if (request.method === "POST" && pathname === "/v1/paypal/webhook") {
