@@ -38,7 +38,7 @@
           <a class="button primary" data-payment="month" href="#">Buy C$72 30-Day Pass</a>
           <span class="button secondary is-disabled" data-chrome-store><span data-label>Coming soon</span></span>
         </div>
-        <p class="note" data-config-note>Replace the payment links and Chrome Web Store URL in <code>config.js</code> before publishing.</p>
+        <p class="note" data-config-note>Secure PayPal checkout creates and verifies each payment through the server.</p>
       </div>
       <aside class="hero-card" aria-label="Summary">
         <h2>What customers get</h2>
@@ -102,8 +102,8 @@
         </article>
         <article class="card">
           <span>02</span>
-          <h3>Configurable checkout</h3>
-          <p>Payment buttons point to configurable hosted checkout URLs and show Coming soon until you add the real links.</p>
+          <h3>Verified checkout</h3>
+          <p>PayPal orders are created and captured by the server so each completed purchase can issue a license automatically.</p>
         </article>
         <article class="card">
           <span>03</span>
@@ -176,13 +176,15 @@
 
   <dialog id="checkout-dialog">
     <button class="close" aria-label="Close">×</button>
-    <p class="eyebrow">COMING SOON</p>
-    <h2>Payment link not configured yet</h2>
-    <p>Add your 7-Day Pass and 30-Day Pass PayPal links in <code>config.js</code> before publishing this page.</p>
+    <p class="eyebrow">SECURE CHECKOUT</p>
+    <h2 id="checkout-title">Pay with PayPal</h2>
+    <p id="checkout-summary"></p>
+    <div id="paypal-button-container"></div>
+    <p id="checkout-status" role="status" aria-live="polite"></p>
   </dialog>
 
-  <script src="config.js?v=3"></script>
-  <script src="app.js?v=3"></script>
+  <script src="config.js?v=4"></script>
+  <script src="app.js?v=4"></script>
 </body>
 </html>
 

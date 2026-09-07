@@ -1,12 +1,10 @@
 (function () {
   const config = window.CSW_CONFIG || {};
+  const licenseApiBase = String(config.licenseApiBase || "").replace(/\/+$/, "");
+  let paypalSdkPromise;
 
   function getValue(value, fallback) {
     return value && value !== fallback ? value : fallback;
-  }
-
-  function isConfigured(value, fallback) {
-    return Boolean(value && value.trim && value.trim() && value !== fallback);
   }
 
   function setText(selector, value) {
@@ -55,16 +53,75 @@
 
   setText("[data-business-name]", businessName);
   setEmailLinks("[data-support-email]", supportEmail);
-  setHref("[data-payment='day']", config.dayPassPaymentUrl, "Buy C$27 7-Day Pass");
-  setHref("[data-payment='month']", config.monthPassPaymentUrl, "Buy C$72 30-Day Pass");
+  setHref("[data-payment='day']", "#checkout", "Buy C$27 7-Day Pass");
+  setHref("[data-payment='month']", "#checkout", "Buy C$72 30-Day Pass");
   setHref("[data-chrome-store]", chromeUrl, "Add to Chrome");
 
   document.querySelectorAll("a.is-disabled").forEach((link) => {
     link.addEventListener("click", (event) => event.preventDefault());
   });
 
+  function loadPayPalSdk() {
+    if (paypalSdkPromise) return paypalSdkPromise;
+    paypalSdkPromise = fetch(`${licenseApiBase}/v1/paypal/config`)
+      .then((response) => response.ok ? response.json() : Promise.reject(new Error("Checkout configuration unavailable.")))
+      .then((paypalConfig) => new Promise((resolve, reject) => {
+        if (!paypalConfig.clientId) return reject(new Error("PayPal client ID is not configured."));
+        const script = document.createElement("script");
+        script.src = `https://www.paypal.com/sdk/js?client-id=${encodeURIComponent(paypalConfig.clientId)}&currency=CAD&intent=capture&components=buttons`;
+        script.onload = () => resolve(window.paypal);
+        script.onerror = () => reject(new Error("PayPal checkout could not load."));
+        document.head.appendChild(script);
+      }));
+    return paypalSdkPromise;
+  }
+
+  async function openCheckout(plan) {
+    const dialog = document.querySelector("#checkout-dialog");
+    const container = document.querySelector("#paypal-button-container");
+    const status = document.querySelector("#checkout-status");
+    const isMonth = plan === "30-day";
+    document.querySelector("#checkout-title").textContent = isMonth ? "30-Day Pass — C$72" : "7-Day Pass — C$27";
+    document.querySelector("#checkout-summary").textContent = "Complete the payment securely with PayPal. Your license will be created and emailed immediately after capture.";
+    container.replaceChildren();
+    status.textContent = "Loading secure checkout…";
+    if (typeof dialog.showModal === "function" && !dialog.open) dialog.showModal();
+    try {
+      const paypal = await loadPayPalSdk();
+      status.textContent = "";
+      await paypal.Buttons({
+        createOrder: async () => {
+          const response = await fetch(`${licenseApiBase}/v1/paypal/orders`, {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ plan }),
+          });
+          const result = await response.json();
+          if (!response.ok || !result.id) throw new Error(result.message || "Could not create PayPal order.");
+          return result.id;
+        },
+        onApprove: async (data) => {
+          status.textContent = "Confirming payment and creating your license…";
+          const response = await fetch(`${licenseApiBase}/v1/paypal/orders/${encodeURIComponent(data.orderID)}/capture`, { method: "POST" });
+          const result = await response.json();
+          if (!response.ok || !result.ok) throw new Error(result.message || "Payment confirmation failed.");
+          status.textContent = `Payment completed. Your license was sent to ${result.email}. Save this token: ${result.token}`;
+        },
+        onCancel: () => { status.textContent = "Checkout canceled. No payment was completed."; },
+        onError: (error) => { status.textContent = error?.message || "PayPal checkout failed. Please try again."; },
+      }).render(container);
+    } catch (error) {
+      status.textContent = error?.message || "Checkout is temporarily unavailable.";
+    }
+  }
+
   document.querySelectorAll("[data-payment], [data-chrome-store]").forEach((link) => {
     link.addEventListener("click", (event) => {
+      if (link.matches("[data-payment]")) {
+        event.preventDefault();
+        openCheckout(link.dataset.payment === "month" ? "30-day" : "week");
+        return;
+      }
       const href = link.getAttribute("href");
       if (!href || href === "#") {
         event.preventDefault();
@@ -76,12 +133,13 @@
     });
   });
 
+  document.querySelector("#checkout-dialog .close")?.addEventListener("click", () => document.querySelector("#checkout-dialog")?.close());
+
+  const requestedPlan = new URLSearchParams(location.search).get("plan");
+  if (["week", "30-day"].includes(requestedPlan)) openCheckout(requestedPlan);
+
   const note = document.querySelector("[data-config-note]");
   if (note) {
-    const hasPayments = isConfigured(config.dayPassPaymentUrl, "") || isConfigured(config.monthPassPaymentUrl, "");
-    const hasStore = isConfigured(chromeUrl, "CHROME_WEB_STORE_URL");
-    note.textContent = hasPayments || hasStore
-      ? "Some links may still be marked Coming soon until you add all URLs in config.js."
-      : "Add your payment links and Chrome Web Store URL in config.js before publishing.";
+    note.textContent = "Secure PayPal checkout creates and verifies each payment through the server.";
   }
 })();
