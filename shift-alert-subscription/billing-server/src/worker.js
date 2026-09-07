@@ -11,11 +11,6 @@ const CORS_HEADERS = {
 };
 const PAYPAL_EVENT_TYPES = new Set([
   "PAYMENT.CAPTURE.COMPLETED",
-  "PAYMENT.SALE.COMPLETED",
-  "CHECKOUT.ORDER.APPROVED",
-  "CHECKOUT.ORDER.COMPLETED",
-  "BILLING.SUBSCRIPTION.ACTIVATED",
-  "BILLING.SUBSCRIPTION.CREATED",
 ]);
 
 function hasEmailDeliveryConfig(env) {
@@ -88,14 +83,17 @@ function getPayPalEmail(event) {
   return (
     resource?.payer?.email_address ||
     resource?.payer?.payer_info?.email ||
-    resource?.purchase_units?.[0]?.payee?.email_address ||
-    resource?.purchase_units?.[0]?.shipping?.email_address ||
     resource?.subscriber?.email_address ||
-    resource?.shipping_detail?.recipient_name ||
     resource?.email_address ||
-    resource?.custom_id ||
     ""
   );
+}
+
+function getPayPalOrderId(event) {
+  const resource = getPayPalResource(event);
+  const upLink = resource?.links?.find?.((link) => link?.rel === "up")?.href || "";
+  const linkedOrderId = String(upLink).match(/\/v2\/checkout\/orders\/([^/?]+)/)?.[1] || "";
+  return String(resource?.supplementary_data?.related_ids?.order_id || linkedOrderId).trim();
 }
 
 function getPayPalAmount(event) {
@@ -137,6 +135,17 @@ function determinePlanByAmount(amount, weekAmount, monthAmount) {
   if (amount === weekAmount) return "week";
   if (amount === monthAmount) return "30-day";
   return null;
+}
+
+function getPayPalCurrency(event) {
+  const resource = getPayPalResource(event);
+  return String(
+    resource?.amount?.currency_code ||
+    resource?.purchase_units?.[0]?.amount?.currency_code ||
+    resource?.seller_receivable_breakdown?.gross_amount?.currency_code ||
+    resource?.payments?.captures?.[0]?.amount?.currency_code ||
+    "",
+  ).toUpperCase();
 }
 
 function isValidEmail(value) {
@@ -252,6 +261,23 @@ async function verifyPayPalManualPayment(env, resourceType, resourceId) {
   return { amount: value, currency, status, resource };
 }
 
+async function getPayPalCompletedOrder(env, orderId) {
+  if (!orderId) throw new Error("PayPal capture did not include its related order ID.");
+  const token = await getPayPalAccessToken(env);
+  const response = await fetch(`${paypalApiBase(env)}/v2/checkout/orders/${encodeURIComponent(orderId)}`, {
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+  });
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`PayPal order lookup failed: ${response.status} ${text}`);
+  }
+  const order = await response.json();
+  if (String(order?.status || "").toUpperCase() !== "COMPLETED") {
+    throw new Error(`PayPal order is not completed (status: ${order?.status || "unknown"}).`);
+  }
+  return order;
+}
+
 async function verifyPayPalWebhook(request, env, event) {
   const webhookId = env.PAYPAL_WEBHOOK_ID?.trim();
   if (!webhookId) {
@@ -322,7 +348,7 @@ async function ensureSchema(env) {
 
 async function upsertLicense(env, license) {
   const existing = await env.DB.prepare(`
-    SELECT token, email
+    SELECT token, email, plan, amount, active, status, payment_link_id, expires_at
     FROM licenses
     WHERE payment_link_id = ?1
     LIMIT 1
@@ -341,7 +367,7 @@ async function upsertLicense(env, license) {
       amount = excluded.amount,
       active = 1,
       status = excluded.status,
-      expires_at = excluded.expires_at,
+      expires_at = licenses.expires_at,
       updated_at = datetime('now')
   `).bind(
     token,
@@ -352,6 +378,19 @@ async function upsertLicense(env, license) {
     license.paymentLinkId,
     license.expiresAt,
   ).run();
+
+  return existing
+    ? {
+        token: existing.token,
+        email,
+        plan: existing.plan,
+        amount: existing.amount,
+        active: Boolean(existing.active),
+        status: license.status || existing.status,
+        paymentLinkId: existing.payment_link_id,
+        expiresAt: existing.expires_at,
+      }
+    : { ...license, token, email };
 }
 
 function buildLicenseEmail(license) {
@@ -417,7 +456,8 @@ async function sendLicenseEmail(env, license) {
     throw new Error(`Failed to send license email: ${response.status} ${errorText}`);
   }
 
-  return { sent: true };
+  const data = await response.json().catch(() => ({}));
+  return { sent: true, id: data?.id || null };
 }
 
 async function markEventSeen(env, eventId) {
@@ -542,13 +582,14 @@ async function handlePayPalWebhook(request, env) {
     return json({ ok: false, message: "Invalid PayPal webhook signature." }, 400);
   }
 
-  if (event?.id && (await markEventSeen(env, event.id))) {
-    return json({ ok: true, duplicate: true });
-  }
-
   const eventType = getPayPalEventType(event);
   if (!PAYPAL_EVENT_TYPES.has(eventType)) {
     return json({ ok: true, ignored: true, eventType });
+  }
+
+  const resource = getPayPalResource(event);
+  if (String(resource?.status || "").toUpperCase() !== "COMPLETED") {
+    return json({ ok: false, message: "PayPal capture is not completed." }, 400);
   }
 
   const amount = getPayPalAmount(event);
@@ -556,7 +597,23 @@ async function handlePayPalWebhook(request, env) {
     return json({ ok: false, message: "Could not determine payment amount from PayPal event." }, 400);
   }
 
-  const email = getPayPalEmail(event);
+  if (getPayPalCurrency(event) !== "CAD") {
+    return json({ ok: false, message: "PayPal payment currency must be CAD." }, 400);
+  }
+
+  let email = getPayPalEmail(event);
+  if (!isValidEmail(email)) {
+    try {
+      const order = await getPayPalCompletedOrder(env, getPayPalOrderId(event));
+      email = getPayPalEmail({ resource: order });
+    } catch (error) {
+      return json({ ok: false, message: error instanceof Error ? error.message : String(error) }, 503);
+    }
+  }
+  email = String(email || "").trim().toLowerCase();
+  if (!isValidEmail(email)) {
+    return json({ ok: false, message: "Could not determine the buyer email from the completed PayPal order." }, 503);
+  }
   const weekAmount = safeInt(env.WEEK_PASS_AMOUNT_PAISE, DEFAULT_WEEK_AMOUNT);
   const monthAmount = safeInt(env.THIRTY_DAY_PASS_AMOUNT_PAISE, DEFAULT_MONTH_AMOUNT);
   const weekHours = safeInt(env.WEEK_PASS_HOURS, DEFAULT_WEEK_HOURS);
@@ -574,9 +631,9 @@ async function handlePayPalWebhook(request, env) {
   }
   const expiresAt = plan === "30-day" ? nowPlusDays(monthDays) : nowPlusHours(weekHours);
   const paymentLinkId = getPayPalReferenceId(event) || crypto.randomUUID();
-  const status = String(getPayPalResource(event)?.status || "COMPLETED").toLowerCase();
+  const status = String(resource?.status || "COMPLETED").toLowerCase();
 
-  const license = {
+  let license = {
     token: crypto.randomUUID(),
     email: email || "",
     plan,
@@ -586,12 +643,19 @@ async function handlePayPalWebhook(request, env) {
     expiresAt,
   };
 
-  await upsertLicense(env, license);
-  const emailResult = await sendLicenseEmail(env, license).catch((error) => ({
-    sent: false,
-    reason: "send-failed",
-    error: error instanceof Error ? error.message : String(error),
-  }));
+  license = await upsertLicense(env, license);
+  let emailResult;
+  try {
+    emailResult = await sendLicenseEmail(env, license);
+  } catch (error) {
+    return json({
+      ok: false,
+      message: "License was created, but its email could not be sent. PayPal may retry this webhook.",
+      emailStatus: { sent: false, reason: "send-failed", error: error instanceof Error ? error.message : String(error) },
+    }, 503);
+  }
+
+  if (event?.id) await markEventSeen(env, event.id);
 
   return json({
     ok: true,

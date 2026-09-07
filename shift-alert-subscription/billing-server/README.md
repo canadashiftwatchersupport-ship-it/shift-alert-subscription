@@ -74,4 +74,6 @@ For an order ID, set `resourceType` to `order`. The Worker accepts only complete
 - Cloudflare Workers is a no-card free deployment path.
 - D1 keeps the license data.
 - PayPal webhook delivery is verified through PayPal's `verify-webhook-signature` endpoint.
+- Automatic fulfillment uses `PAYMENT.CAPTURE.COMPLETED`. The Worker retrieves the related completed order to obtain the buyer email because capture events generally omit it.
+- Configure the webhook on the same live REST app whose credentials created the payment links. Subscribe that URL to `PAYMENT.CAPTURE.COMPLETED`.
 - Email delivery is enabled when you provide `RESEND_API_KEY` and `EMAIL_FROM`.
