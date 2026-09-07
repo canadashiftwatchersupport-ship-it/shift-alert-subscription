@@ -35,11 +35,7 @@ function showSettings() {
     locationPreference.value = data.locationPreference || "";
     anywhereCanada.checked = Boolean(data.anywhereCanada);
     locationPreference.disabled = anywhereCanada.checked;
-    if (data.amazonAccountMismatch) {
-      status.textContent = "This license is bound to a different Amazon account. Sign in to the original account to continue.";
-    } else if (!data.license?.amazonAccountKey) {
-      status.textContent = "Your license will bind to the first Amazon account identity visible after you start watching.";
-    }
+    status.textContent = "Use Bind / verify Amazon account before starting. Account checks open a temporary background profile tab.";
   });
 }
 
@@ -98,3 +94,8 @@ document.querySelectorAll("[data-plan]").forEach(button => button.onclick = () =
 chrome.storage.local.get("license", data => {
   if (data.license?.active && new Date(data.license.expiresAt) > new Date()) showSettings();
 });
+
+document.querySelector("#bindAmazon").onclick = () => {
+  status.textContent = "Checking the signed-in Amazon account…";
+  chrome.runtime.sendMessage({ type: "bind-amazon-account" }, result => { status.textContent = result?.ok ? "Amazon account bound and verified." : (result?.message || "Account check failed."); });
+};

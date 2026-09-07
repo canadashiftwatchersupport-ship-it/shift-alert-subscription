@@ -193,6 +193,9 @@
   async function prepareApplicationStep() {
     const { autoPrepare, acceptAlternative, applicationAutomation, shiftType = "any", exactShiftStart, exactShiftEnd } = await chrome.storage.local.get(["autoPrepare", "acceptAlternative", "applicationAutomation", "shiftType", "exactShiftStart", "exactShiftEnd"]);
     if (!autoPrepare || !applicationAutomation?.active) return;
+    if (location.hash.startsWith("#/contactInformation")) return;
+    const accountCheck = await chrome.runtime.sendMessage({ type: "check-amazon-account" }).catch(() => ({ ok: false }));
+    if (!accountCheck?.ok) return;
 
     // Final boundary: never click Submit. Stop as soon as it is visible.
     if (exactAction("Submit").length > 0 || exactAction("Submit application").length > 0) {

@@ -1,3 +1,4 @@
+importScripts("account-binding.js");
 importScripts("shift-filter.js");
 importScripts("config.js");
 
@@ -9,32 +10,7 @@ async function activeLicense() {
   return Boolean(license?.active && new Date(license.expiresAt) > new Date());
 }
 
-async function amazonAccountAllowed(accountKey) {
-  if (!accountKey || !(await activeLicense())) return true;
-  const { license } = await chrome.storage.local.get("license");
-  if (!license.amazonAccountKey) {
-    await chrome.storage.local.set({ license: { ...license, amazonAccountKey: accountKey } });
-    return true;
-  }
-  if (license.amazonAccountKey === accountKey) return true;
-  await chrome.storage.local.set({
-    enabled: false,
-    watching: false,
-    amazonAccountMismatch: true
-  });
-  await chrome.alarms.clear(ALARM);
-  try {
-    await chrome.notifications.create("amazon-account:mismatch", {
-      type: "basic",
-      iconUrl: "icon.svg",
-      title: "Amazon account does not match",
-      message: "This license is already bound to another Amazon account. Sign in to the bound account to continue.",
-      priority: 2,
-      requireInteraction: true
-    });
-  } catch {}
-  return false;
-}
+async function amazonAccountAllowed() { return true; }
 
 async function verifyLicense(email, token) {
   try {
@@ -66,7 +42,7 @@ async function setAlarm(enabled, intervalMinutes = 1) {
   }
 }
 
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+registerAccountProtectedListener((message, sender, sendResponse) => {
   if (["set-enabled", "set-watching", "save-settings"].includes(message.type) && (message.exactShiftStart || message.exactShiftEnd) && (CSW_SHIFT_FILTER.minutes(message.exactShiftStart) === null || CSW_SHIFT_FILTER.minutes(message.exactShiftEnd) === null)) {
     sendResponse({ ok: false, message: "Enter both exact start and end times, or leave both blank." });
     return;
@@ -180,6 +156,7 @@ chrome.alarms.onAlarm.addListener(async alarm => {
   if (alarm.name !== ALARM) return;
   const { enabled } = await chrome.storage.local.get("enabled");
   if (!enabled || !await activeLicense()) return;
+  if (!(await verifyCurrentAmazonAccount()).ok) return;
 
   const tabs = await chrome.tabs.query({ url: "https://hiring.amazon.ca/*" });
   const searchTab = tabs.find(tab => (tab.url || "").includes("/app#/jobSearch"));

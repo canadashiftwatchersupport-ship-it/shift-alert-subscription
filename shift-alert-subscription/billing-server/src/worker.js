@@ -668,6 +668,27 @@ async function seedSchemaOnFirstRequest(env) {
   }
 }
 
+
+async function checkAmazonBinding(request, env) {
+  const body = await readJson(request);
+  const email = String(body.email || "").trim();
+  const token = String(body.token || "");
+  const accountHash = String(body.accountHash || "");
+  if (!/^[a-f0-9]{64}$/.test(accountHash)) return json({ ok: false, message: "Amazon account could not be verified." }, 400);
+  const auth = await buildLicenseResponse(env, email, token);
+  if (!auth.ok) return auth;
+  const license = await auth.json();
+  if (!license.expiresAt || Date.parse(license.expiresAt) <= Date.now()) return json({ ok: false, message: "License expired." }, 401);
+  await env.DB.prepare("CREATE TABLE IF NOT EXISTS license_amazon_accounts (license_token TEXT PRIMARY KEY, account_hash TEXT NOT NULL, bound_at TEXT NOT NULL DEFAULT (datetime('now')))").run();
+  if (body.bind === true) {
+    await env.DB.prepare("INSERT INTO license_amazon_accounts (license_token, account_hash) VALUES (?1, ?2) ON CONFLICT(license_token) DO NOTHING").bind(token, accountHash).run();
+  }
+  const bound = await env.DB.prepare("SELECT account_hash FROM license_amazon_accounts WHERE license_token = ?1").bind(token).first();
+  if (!bound) return json({ ok: false, message: "Bind your Amazon account in the extension before watching." }, 409);
+  if (bound.account_hash !== accountHash) return json({ ok: false, message: "This license belongs to a different Amazon account." }, 403);
+  return json({ ok: true });
+}
+
 export default {
   async fetch(request, env) {
     if (request.method === "OPTIONS") {
@@ -712,6 +733,11 @@ export default {
         ok: true,
         message: "Callback received. Final activation should still happen from the webhook.",
       });
+    }
+
+    if (request.method === "POST" && pathname === "/v1/licenses/amazon-account") {
+      try { return await checkAmazonBinding(request, env); }
+      catch { return json({ ok: false, message: "Account verification unavailable. Try again later." }, 503); }
     }
 
     if (request.method === "POST" && pathname === "/v1/licenses/verify") {
