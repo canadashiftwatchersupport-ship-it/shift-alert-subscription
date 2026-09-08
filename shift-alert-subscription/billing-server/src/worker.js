@@ -839,16 +839,24 @@ async function handleWeeklyBonusExtension(request, env) {
 
   const email = String(body.email || "").trim().toLowerCase();
   const token = String(body.token || "").trim();
-  if (!isValidEmail(email) || !token) {
-    return json({ ok: false, message: "The customer's email and license token are required." }, 400);
+  if (!isValidEmail(email)) {
+    return json({ ok: false, message: "The customer's email is required." }, 400);
   }
 
-  const license = await env.DB.prepare(`
-    SELECT token, email, plan, active, expires_at
-    FROM licenses
-    WHERE token = ?1 AND lower(email) = ?2
-    LIMIT 1
-  `).bind(token, email).first();
+  const license = token
+    ? await env.DB.prepare(`
+        SELECT token, email, plan, active, expires_at
+        FROM licenses
+        WHERE token = ?1 AND lower(email) = ?2
+        LIMIT 1
+      `).bind(token, email).first()
+    : await env.DB.prepare(`
+        SELECT token, email, plan, active, expires_at
+        FROM licenses
+        WHERE lower(email) = ?1 AND plan = 'week'
+        ORDER BY expires_at DESC, updated_at DESC
+        LIMIT 1
+      `).bind(email).first();
   if (!license) return json({ ok: false, message: "License not found." }, 404);
   if (license.plan !== "week") {
     return json({ ok: false, message: "The seven-day bonus can only be applied to a weekly license." }, 400);
@@ -859,9 +867,9 @@ async function handleWeeklyBonusExtension(request, env) {
     FROM license_extensions
     WHERE license_token = ?1 AND reason = 'week-bonus'
     LIMIT 1
-  `).bind(token).first();
+  `).bind(license.token).first();
   if (existingBonus) {
-    return json({ ok: true, alreadyExtended: true, token, email: license.email, expiresAt: existingBonus.new_expires_at });
+    return json({ ok: true, alreadyExtended: true, token: license.token, email: license.email, expiresAt: existingBonus.new_expires_at });
   }
 
   const oldExpiryMs = Date.parse(license.expires_at);
@@ -872,18 +880,18 @@ async function handleWeeklyBonusExtension(request, env) {
       UPDATE licenses
       SET active = 1, status = 'week-bonus-extended', expires_at = ?2, updated_at = datetime('now')
       WHERE token = ?1
-    `).bind(token, expiresAt),
+    `).bind(license.token, expiresAt),
     env.DB.prepare(`
       INSERT INTO license_extensions (license_token, reason, days, previous_expires_at, new_expires_at)
       VALUES (?1, 'week-bonus', 7, ?2, ?3)
-    `).bind(token, license.expires_at, expiresAt),
+    `).bind(license.token, license.expires_at, expiresAt),
   ]);
 
   return json({
     ok: true,
     extended: true,
     daysAdded: 7,
-    token,
+    token: license.token,
     email: license.email,
     previousExpiresAt: license.expires_at,
     expiresAt,

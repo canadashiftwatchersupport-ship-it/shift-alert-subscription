@@ -77,7 +77,6 @@ For an order ID, set `resourceType` to `order`. The Worker accepts only complete
 $manualSecret = Read-Host "MANUAL_LICENSE_SECRET"
 $requestBody = @{
   email = "customer@example.com"
-  token = "customer-license-token"
 } | ConvertTo-Json
 
 Invoke-RestMethod `
@@ -88,7 +87,7 @@ Invoke-RestMethod `
   -Body $requestBody
 ```
 
-The customer continues using the same email and token. The extension receives the new expiry the next time it verifies the license.
+The endpoint finds the latest weekly license for that email and returns its token. You may include `token` in the request when the customer has bought more than one weekly license and you need to target a specific one. The customer continues using the same email and token. The extension receives the new expiry the next time it verifies the license.
 
 ## Notes
 

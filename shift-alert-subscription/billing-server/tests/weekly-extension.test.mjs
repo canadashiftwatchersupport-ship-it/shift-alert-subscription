@@ -14,6 +14,11 @@ function createDb(license) {
           ? { ...state.license }
           : null;
       }
+      if (/FROM licenses\s+WHERE lower\(email\)/i.test(sql)) {
+        return state.license.email.toLowerCase() === values[0] && state.license.plan === "week"
+          ? { ...state.license }
+          : null;
+      }
       if (/FROM license_extensions/i.test(sql)) return state.extension && { new_expires_at: state.extension.new_expires_at };
       return null;
     },
@@ -60,6 +65,15 @@ test("adds seven days to a weekly license and keeps its token", async () => {
   assert.equal(result.extended, true);
   assert.equal(result.token, "weekly-token");
   assert.equal(Date.parse(result.expiresAt) - Date.parse(originalExpiry), 7 * 86400000);
+});
+
+test("finds the latest weekly license using only the customer email", async () => {
+  const db = createDb({ token: "weekly-token", email: "customer@example.com", plan: "week", active: 1, expires_at: new Date(Date.now() + 86400000).toISOString() });
+  const response = await extend(db, { token: "" });
+  const result = await response.json();
+  assert.equal(response.status, 200);
+  assert.equal(result.token, "weekly-token");
+  assert.equal(result.extended, true);
 });
 
 test("does not add the same weekly bonus twice", async () => {
