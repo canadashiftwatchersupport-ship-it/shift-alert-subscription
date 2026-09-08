@@ -72,6 +72,7 @@
       if (requestedType === "full-time" && !/\bfull[\s-]?time\b/i.test(text)) continue;
       if (requestedType === "part-time" && !/\bpart[\s-]?time\b/i.test(text)) continue;
       if (requestedType === "flex" && !/\bflex(?:ible)?\b/i.test(text)) continue;
+      if (requestedType === "part-time-flex" && !/\b(?:part[\s-]?time|flex(?:ible)?)\b/i.test(text)) continue;
 
       const location = extractField(text, [
         /(?:location|workplace|site|address)\s*[:\-]?\s*([^|•\n]{3,100})/i,
