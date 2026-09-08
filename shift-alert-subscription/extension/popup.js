@@ -4,7 +4,6 @@ const settingsView = document.querySelector("#settingsView");
 const email = document.querySelector("#email");
 const token = document.querySelector("#token");
 const watching = document.querySelector("#watching");
-const interval = document.querySelector("#interval");
 const autoPrepare = document.querySelector("#autoPrepare");
 const acceptAlternative = document.querySelector("#acceptAlternative");
 const exactShiftStart = document.querySelector("#exactShiftStart");
@@ -22,9 +21,8 @@ function showSettings() {
   // downloaded builds even when a browser retains the previous popup DOM.
   licenseView.style.display = "none";
   settingsView.style.display = "block";
-  chrome.storage.local.get(["watching", "intervalMinutes", "autoPrepare", "acceptAlternative", "jobType", "shiftType", "exactShiftStart", "exactShiftEnd", "locationPreference", "anywhereCanada", "amazonAccountMismatch", "license"], data => {
+  chrome.storage.local.get(["watching", "autoPrepare", "acceptAlternative", "jobType", "shiftType", "exactShiftStart", "exactShiftEnd", "locationPreference", "anywhereCanada", "amazonAccountMismatch", "license"], data => {
     watching.checked = Boolean(data.watching);
-    interval.value = String(data.intervalMinutes || (5 / 60));
     autoPrepare.checked = Boolean(data.autoPrepare);
     acceptAlternative.checked = Boolean(data.acceptAlternative);
     jobType.value = data.jobType || "any";
@@ -55,7 +53,7 @@ document.querySelector("#activate").onclick = () => {
 
 function watcherSettings() {
   return {
-    intervalMinutes: Number(interval.value),
+    intervalMinutes: 0.5,
     autoPrepare: autoPrepare.checked,
     acceptAlternative: acceptAlternative.checked,
     jobType: jobType.value,

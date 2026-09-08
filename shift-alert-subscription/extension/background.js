@@ -4,7 +4,7 @@ importScripts("config.js");
 
 const SEARCH_URL = "https://hiring.amazon.ca/app#/jobSearch";
 const ALARM = "amazon-canada-shift-scan";
-const DEFAULT_INTERVAL_MINUTES = 5 / 60;
+const DEFAULT_INTERVAL_MINUTES = 0.5;
 const COMPLETION_AUDIO_DOCUMENT = "offscreen.html";
 let completionAudioDocumentPromise = null;
 
