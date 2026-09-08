@@ -239,13 +239,15 @@
     const unavailable = pageText.includes("this job is not available for application now") ||
       pageText.includes("0 schedules found") ||
       pageText.includes("there are no schedules that match your filter choices") ||
-      pageText.includes("all shifts have been filled for this job");
+      pageText.includes("all shifts have been filled for this job") ||
+      /(?:shift|slot|schedule).{0,50}(?:is |are )?(?:no longer |not )available/.test(pageText) ||
+      /selected (?:shift|slot|schedule).{0,40}(?:unavailable|filled|taken)/.test(pageText);
     if (unavailable && !window.__amazonReturningToSearch) {
       window.__amazonReturningToSearch = true;
       await chrome.storage.local.set({
         applicationAutomation: { ...applicationAutomation, active: false, phase: "unavailable" }
       });
-      await chrome.runtime.sendMessage({ type: "resume-watching" });
+      await chrome.runtime.sendMessage({ type: "resume-watching", retryJobId: applicationAutomation.jobId });
       location.href = "https://hiring.amazon.ca/app#/jobSearch";
       return;
     }

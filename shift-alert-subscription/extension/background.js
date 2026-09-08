@@ -151,9 +151,13 @@ registerAccountProtectedListener((message, sender, sendResponse) => {
   if (message.type === "resume-watching") {
     activeLicense().then(async ok => {
       if (!ok) { sendResponse({ ok: false, message: "An active license is required." }); return; }
-      const settings = await chrome.storage.local.get("intervalMinutes");
+      const settings = await chrome.storage.local.get(["intervalMinutes", "seen"]);
+      const seen = { ...(settings.seen || {}) };
+      if (message.retryJobId) delete seen[message.retryJobId];
       await chrome.storage.local.set({
         enabled: true,
+        watching: true,
+        seen,
         applicationAutomation: { active: false, phase: "watching" }
       });
       await setAlarm(true, settings.intervalMinutes || DEFAULT_INTERVAL_MINUTES);
