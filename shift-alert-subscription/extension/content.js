@@ -118,7 +118,7 @@
 
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.type !== "scan-now") return;
-    Promise.all([report(), scheduleExpandSearch()]).then(() => sendResponse({ ok: true })).catch(error => {
+    Promise.all([report(), scheduleExpandSearch(), scheduleFastPageReload()]).then(() => sendResponse({ ok: true })).catch(error => {
       console.warn("Immediate scan failed", error);
       sendResponse({ ok: false });
     });
@@ -330,10 +330,23 @@
     }, 5000);
   }
 
+  async function scheduleFastPageReload() {
+    clearTimeout(window.__amazonFastPageReloadTimer);
+    if (!location.hash.includes("/jobSearch")) return;
+    const { enabled, intervalMinutes } = await chrome.storage.local.get(["enabled", "intervalMinutes"]);
+    const minutes = Number(intervalMinutes) || 1;
+    if (!enabled || minutes >= 0.5) return;
+    window.__amazonFastPageReloadTimer = setTimeout(async () => {
+      const latest = await chrome.storage.local.get("enabled");
+      if (latest.enabled && location.hash.includes("/jobSearch")) location.reload();
+    }, Math.max(10000, Math.round(minutes * 60000)));
+  }
+
   setTimeout(report, 150);
   setTimeout(prepareApplication, 150);
   setTimeout(resumeAfterRejection, 150);
   setTimeout(scheduleExpandSearch, 200);
+  setTimeout(scheduleFastPageReload, 225);
   const observer = new MutationObserver(() => {
     clearTimeout(window.__amazonWatcherDebounce);
     window.__amazonWatcherDebounce = setTimeout(report, 75);
