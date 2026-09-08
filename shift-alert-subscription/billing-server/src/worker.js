@@ -433,6 +433,18 @@ async function ensureSchema(env) {
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     )
   `).run();
+
+  await env.DB.prepare(`
+    CREATE TABLE IF NOT EXISTS license_extensions (
+      license_token TEXT NOT NULL,
+      reason TEXT NOT NULL,
+      days INTEGER NOT NULL,
+      previous_expires_at TEXT NOT NULL,
+      new_expires_at TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      PRIMARY KEY (license_token, reason)
+    )
+  `).run();
 }
 
 async function upsertLicense(env, license) {
@@ -813,6 +825,71 @@ async function handleManualLicenseIssue(request, env) {
   return json({ ok: true, manuallyIssued: true, plan, token: license.token, expiresAt: license.expiresAt, emailSent: emailResult.sent, emailStatus: emailResult });
 }
 
+async function handleWeeklyBonusExtension(request, env) {
+  if (!isAuthorizedManualIssue(request, env)) {
+    return json({ ok: false, message: "Unauthorized." }, 401);
+  }
+
+  let body;
+  try {
+    body = await readJson(request);
+  } catch {
+    return json({ ok: false, message: "Invalid JSON payload." }, 400);
+  }
+
+  const email = String(body.email || "").trim().toLowerCase();
+  const token = String(body.token || "").trim();
+  if (!isValidEmail(email) || !token) {
+    return json({ ok: false, message: "The customer's email and license token are required." }, 400);
+  }
+
+  const license = await env.DB.prepare(`
+    SELECT token, email, plan, active, expires_at
+    FROM licenses
+    WHERE token = ?1 AND lower(email) = ?2
+    LIMIT 1
+  `).bind(token, email).first();
+  if (!license) return json({ ok: false, message: "License not found." }, 404);
+  if (license.plan !== "week") {
+    return json({ ok: false, message: "The seven-day bonus can only be applied to a weekly license." }, 400);
+  }
+
+  const existingBonus = await env.DB.prepare(`
+    SELECT new_expires_at
+    FROM license_extensions
+    WHERE license_token = ?1 AND reason = 'week-bonus'
+    LIMIT 1
+  `).bind(token).first();
+  if (existingBonus) {
+    return json({ ok: true, alreadyExtended: true, token, email: license.email, expiresAt: existingBonus.new_expires_at });
+  }
+
+  const oldExpiryMs = Date.parse(license.expires_at);
+  const extensionBase = Math.max(Date.now(), Number.isFinite(oldExpiryMs) ? oldExpiryMs : 0);
+  const expiresAt = new Date(extensionBase + 7 * 24 * 60 * 60 * 1000).toISOString();
+  await env.DB.batch([
+    env.DB.prepare(`
+      UPDATE licenses
+      SET active = 1, status = 'week-bonus-extended', expires_at = ?2, updated_at = datetime('now')
+      WHERE token = ?1
+    `).bind(token, expiresAt),
+    env.DB.prepare(`
+      INSERT INTO license_extensions (license_token, reason, days, previous_expires_at, new_expires_at)
+      VALUES (?1, 'week-bonus', 7, ?2, ?3)
+    `).bind(token, license.expires_at, expiresAt),
+  ]);
+
+  return json({
+    ok: true,
+    extended: true,
+    daysAdded: 7,
+    token,
+    email: license.email,
+    previousExpiresAt: license.expires_at,
+    expiresAt,
+  });
+}
+
 async function seedSchemaOnFirstRequest(env) {
   try {
     await ensureSchema(env);
@@ -883,6 +960,10 @@ export default {
 
     if (request.method === "POST" && pathname === "/v1/admin/licenses/manual") {
       return handleManualLicenseIssue(request, env);
+    }
+
+    if (request.method === "POST" && pathname === "/v1/admin/licenses/extend-week") {
+      return handleWeeklyBonusExtension(request, env);
     }
 
     if (request.method === "POST" && pathname === "/v1/razorpay/webhook") {

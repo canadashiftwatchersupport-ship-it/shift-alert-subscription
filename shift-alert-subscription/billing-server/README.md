@@ -69,6 +69,27 @@ Then call `POST /v1/admin/licenses/manual` with a bearer token and the customer'
 
 For an order ID, set `resourceType` to `order`. The Worker accepts only completed CAD payments matching the configured C$27 weekly pass or C$72 30-weekly pass, stores the license idempotently, and sends the token email when Resend is configured. Repeating the same request returns the existing token instead of issuing a duplicate.
 
+## Add a one-week customer bonus
+
+`POST /v1/admin/licenses/extend-week` adds seven days to an existing weekly license while keeping its token and Amazon-account binding. It adds the time after the current expiry, or seven days from now when the license has already expired. Each license can receive this bonus once, so repeating the request does not add more time.
+
+```powershell
+$manualSecret = Read-Host "MANUAL_LICENSE_SECRET"
+$requestBody = @{
+  email = "customer@example.com"
+  token = "customer-license-token"
+} | ConvertTo-Json
+
+Invoke-RestMethod `
+  -Method Post `
+  -Uri "https://shift-alert-subscription.canadashiftwatcher-support.workers.dev/v1/admin/licenses/extend-week" `
+  -Headers @{ "X-Manual-License-Secret" = $manualSecret } `
+  -ContentType "application/json" `
+  -Body $requestBody
+```
+
+The customer continues using the same email and token. The extension receives the new expiry the next time it verifies the license.
+
 ## Notes
 
 - Cloudflare Workers is a no-card free deployment path.
