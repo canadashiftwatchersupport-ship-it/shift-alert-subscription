@@ -4,7 +4,7 @@ importScripts("config.js");
 
 const SEARCH_URL = "https://hiring.amazon.ca/app#/jobSearch";
 const ALARM = "amazon-canada-shift-scan";
-const DEFAULT_INTERVAL_MINUTES = 0.5;
+const DEFAULT_INTERVAL_MINUTES = 1;
 const COMPLETION_AUDIO_DOCUMENT = "offscreen.html";
 let completionAudioDocumentPromise = null;
 
@@ -58,9 +58,9 @@ chrome.runtime.onInstalled.addListener(async ({ reason }) => {
   const defaults = { enabled: false, watching: false, seen: {}, intervalMinutes: DEFAULT_INTERVAL_MINUTES, autoPrepare: false, acceptAlternative: false, jobType: "any", locationPreference: "", anywhereCanada: false };
   const stored = await chrome.storage.local.get(Object.keys(defaults));
   const missing = Object.fromEntries(Object.entries(defaults).filter(([key]) => stored[key] === undefined));
-  await chrome.storage.local.set({ ...missing, intervalMinutes: DEFAULT_INTERVAL_MINUTES });
+  await chrome.storage.local.set(missing);
   if (reason !== "install" && (stored.enabled || stored.watching)) {
-    await setAlarm(true, DEFAULT_INTERVAL_MINUTES);
+    await setAlarm(true, stored.intervalMinutes || DEFAULT_INTERVAL_MINUTES);
   }
 });
 
