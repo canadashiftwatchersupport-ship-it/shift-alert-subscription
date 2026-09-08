@@ -280,6 +280,7 @@
         applicationAutomation: { ...applicationAutomation, phase: "created-application" }
       });
       clickOnce(createButtons[0]);
+      await chrome.runtime.sendMessage({ type: "application-created" }).catch(() => null);
       return;
     }
 

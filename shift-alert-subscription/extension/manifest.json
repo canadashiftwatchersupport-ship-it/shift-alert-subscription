@@ -1,11 +1,12 @@
 {
   "manifest_version": 3,
   "name": "Canada Shift Watcher",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "description": "Canada listings alerts with optional intermediate navigation and one-time paid access.",
   "permissions": [
     "alarms",
     "notifications",
+    "offscreen",
     "storage",
     "tabs"
   ],

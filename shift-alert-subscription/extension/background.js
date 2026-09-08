@@ -4,6 +4,31 @@ importScripts("config.js");
 
 const SEARCH_URL = "https://hiring.amazon.ca/app#/jobSearch";
 const ALARM = "amazon-canada-shift-scan";
+const COMPLETION_AUDIO_DOCUMENT = "offscreen.html";
+let completionAudioDocumentPromise = null;
+
+async function ensureCompletionAudioDocument() {
+  const documentUrl = chrome.runtime.getURL(COMPLETION_AUDIO_DOCUMENT);
+  const contexts = await chrome.runtime.getContexts({
+    contextTypes: ["OFFSCREEN_DOCUMENT"],
+    documentUrls: [documentUrl]
+  });
+  if (contexts.length > 0) return;
+
+  if (!completionAudioDocumentPromise) {
+    completionAudioDocumentPromise = chrome.offscreen.createDocument({
+      url: COMPLETION_AUDIO_DOCUMENT,
+      reasons: ["AUDIO_PLAYBACK"],
+      justification: "Play a short beep after Create application is completed."
+    }).finally(() => { completionAudioDocumentPromise = null; });
+  }
+  await completionAudioDocumentPromise;
+}
+
+async function playApplicationCreatedBeep() {
+  await ensureCompletionAudioDocument();
+  await chrome.runtime.sendMessage({ target: "offscreen", type: "play-application-created-beep" });
+}
 
 async function activeLicense() {
   const { license } = await chrome.storage.local.get("license");
@@ -127,6 +152,13 @@ registerAccountProtectedListener((message, sender, sendResponse) => {
       await setAlarm(true, settings.intervalMinutes || 1);
       sendResponse({ ok: true });
     });
+    return true;
+  }
+
+  if (message.type === "application-created") {
+    playApplicationCreatedBeep()
+      .then(() => sendResponse({ ok: true }))
+      .catch(error => sendResponse({ ok: false, message: String(error) }));
     return true;
   }
 
