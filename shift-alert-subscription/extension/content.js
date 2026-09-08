@@ -240,15 +240,28 @@
       pageText.includes("0 schedules found") ||
       pageText.includes("there are no schedules that match your filter choices") ||
       pageText.includes("all shifts have been filled for this job") ||
+      /(?:the )?job you selected (?:doesn['’]t|does not) have (?:any )?available shifts/.test(pageText) ||
       /(?:shift|slot|schedule).{0,50}(?:is |are )?(?:no longer |not )available/.test(pageText) ||
       /selected (?:shift|slot|schedule).{0,40}(?:unavailable|filled|taken)/.test(pageText);
     if (unavailable && !window.__amazonReturningToSearch) {
       window.__amazonReturningToSearch = true;
+      const unavailableNotice = [...document.querySelectorAll("[role='alert'], [class*='alert'], [class*='error']")]
+        .find(element => /job you selected|no (?:available )?(?:shifts|schedules)|shifts? (?:are |is )?(?:not|no longer) available/i.test(clean(element.innerText)));
+      const dismissButton = unavailableNotice && [...unavailableNotice.querySelectorAll("button, [role='button']")]
+        .find(element => /^(?:close|dismiss|x|×)$/i.test(actionLabel(element)) || /close|dismiss/i.test(element.getAttribute("aria-label") || ""));
+      if (dismissButton) clickOnce(dismissButton);
       await chrome.storage.local.set({
         applicationAutomation: { ...applicationAutomation, active: false, phase: "unavailable" }
       });
       await chrome.runtime.sendMessage({ type: "resume-watching", retryJobId: applicationAutomation.jobId });
-      location.href = "https://hiring.amazon.ca/app#/jobSearch";
+      if (location.hash.includes("/jobSearch")) {
+        setTimeout(() => {
+          window.__amazonReturningToSearch = false;
+          report();
+        }, 500);
+      } else {
+        location.href = "https://hiring.amazon.ca/app#/jobSearch";
+      }
       return;
     }
 
