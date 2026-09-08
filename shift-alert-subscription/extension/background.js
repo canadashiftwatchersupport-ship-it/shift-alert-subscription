@@ -54,8 +54,14 @@ async function verifyLicense(email, token) {
   }
 }
 
-chrome.runtime.onInstalled.addListener(async () => {
-  await chrome.storage.local.set({ enabled: false, seen: {}, intervalMinutes: DEFAULT_INTERVAL_MINUTES, autoPrepare: false, acceptAlternative: false, jobType: "any", locationPreference: "", anywhereCanada: false });
+chrome.runtime.onInstalled.addListener(async ({ reason }) => {
+  const defaults = { enabled: false, watching: false, seen: {}, intervalMinutes: DEFAULT_INTERVAL_MINUTES, autoPrepare: false, acceptAlternative: false, jobType: "any", locationPreference: "", anywhereCanada: false };
+  const stored = await chrome.storage.local.get(Object.keys(defaults));
+  const missing = Object.fromEntries(Object.entries(defaults).filter(([key]) => stored[key] === undefined));
+  await chrome.storage.local.set({ ...missing, intervalMinutes: DEFAULT_INTERVAL_MINUTES });
+  if (reason !== "install" && (stored.enabled || stored.watching)) {
+    await setAlarm(true, DEFAULT_INTERVAL_MINUTES);
+  }
 });
 
 async function setAlarm(enabled, intervalMinutes = DEFAULT_INTERVAL_MINUTES) {

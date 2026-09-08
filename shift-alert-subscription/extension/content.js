@@ -319,9 +319,10 @@
     window.__amazonExpandSearchTimer = setTimeout(async () => {
       const latest = await chrome.storage.local.get("enabled");
       if (latest.enabled && location.hash.includes("/jobSearch")) {
-        const expandButtons = exactAction("Expand your search");
-        if (expandButtons.length === 1) {
-          expandButtons[0].click();
+        const expandSearch = [...document.querySelectorAll("a, button, [role='button'], [role='link']")]
+          .find(element => visible(element) && /^expand\s+your\s+search\b/i.test(actionLabel(element)));
+        if (expandSearch) {
+          expandSearch.click();
           setTimeout(report, 300);
         }
         scheduleExpandSearch();
