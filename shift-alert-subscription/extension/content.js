@@ -136,9 +136,13 @@
   // automation on the schedule panel.
   const actionLabel = element => clean(element.innerText) ||
     clean(element.getAttribute("aria-label")) ||
-    clean(element.title);
-  const exactAction = label => [...document.querySelectorAll("button, a, [role='button']")]
+    clean(element.title) ||
+    clean(element.value);
+  const actionElements = () => [...document.querySelectorAll("button, a, [role='button'], input[type='button'], input[type='submit']")];
+  const exactAction = label => actionElements()
     .filter(element => visible(element) && actionLabel(element).toLowerCase() === label.toLowerCase());
+  const matchingAction = pattern => actionElements()
+    .filter(element => visible(element) && pattern.test(actionLabel(element)));
 
   function payForScheduleAction(button) {
     let node = button.parentElement;
@@ -163,8 +167,8 @@
   function scheduleText(button, needsTimes) {
     let node = button;
     for (let depth = 0; node && node !== document.body && depth < 8; depth++, node = node.parentElement) {
-      const actions = [...node.querySelectorAll("button, a, [role='button']")]
-        .filter(element => visible(element) && /^(apply|confirm|select shift|accept (?:this |alternative )?offer)$/i.test(actionLabel(element)));
+      const actions = [...node.querySelectorAll("button, a, [role='button'], input[type='button'], input[type='submit']")]
+        .filter(element => visible(element) && /^(?:apply(?: now)?|confirm(?: (?:shift|schedule|selection))?|(?:select|choose)(?: this)? (?:shift|schedule)|accept (?:this |alternative )?offer)$/i.test(actionLabel(element)));
       if (actions.some(action => action !== button)) break;
       const text = clean(node.innerText);
       if (needsTimes ? CSW_SHIFT_FILTER.ranges(text).length > 0 : CSW_SHIFT_FILTER.classify(text) !== "unknown") return text;
@@ -246,7 +250,10 @@
       return;
     }
 
-    const scheduleControls = [...exactAction("Confirm"), ...exactAction("Apply")];
+    const confirmButtons = matchingAction(/^confirm(?: (?:shift|schedule|selection))?$/i);
+    const allApplyButtons = matchingAction(/^apply(?: now)?$/i);
+    const applyButtons = allApplyButtons.filter(button => scheduleMatches(button, shiftType, exactShiftStart, exactShiftEnd));
+    const scheduleControls = [...confirmButtons, ...allApplyButtons];
     const filtering = (shiftType !== "any") || exactShiftStart || exactShiftEnd;
     if (filtering && scheduleControls.length && !["created-application", "accepted-alternative"].includes(applicationAutomation.phase) &&
         scheduleControls.every(button => scheduleText(button, Boolean(exactShiftStart || exactShiftEnd))) &&
@@ -256,7 +263,6 @@
       location.href = "https://hiring.amazon.ca/app#/jobSearch";
       return;
     }
-    const confirmButtons = exactAction("Confirm");
     if (confirmButtons.length === 1 && scheduleMatches(confirmButtons[0], shiftType, exactShiftStart, exactShiftEnd) && !["created-application", "stopped-at-submit", "unavailable"].includes(applicationAutomation.phase)) {
       await chrome.storage.local.set({
         applicationAutomation: { ...applicationAutomation, phase: "confirmed-schedule" }
@@ -265,7 +271,6 @@
       return;
     }
 
-    const applyButtons = exactAction("Apply").filter(button => scheduleMatches(button, shiftType, exactShiftStart, exactShiftEnd));
     if (applyButtons.length > 0 && !["created-application", "stopped-at-submit", "unavailable"].includes(applicationAutomation.phase)) {
       await chrome.storage.local.set({
         applicationAutomation: { ...applicationAutomation, phase: "applied-schedule" }
@@ -275,7 +280,7 @@
       return;
     }
 
-    const createButtons = exactAction("Create application");
+    const createButtons = matchingAction(/^create application(?: now)?$/i);
     if (createButtons.length === 1 && ["confirmed-schedule", "applied-schedule", "accepted-alternative"].includes(applicationAutomation.phase)) {
       await chrome.storage.local.set({
         applicationAutomation: { ...applicationAutomation, phase: "created-application" }
@@ -286,11 +291,7 @@
     }
 
     if (["open-listing", "select-shift"].includes(applicationAutomation.phase)) {
-      const selectButtons = [
-        ...exactAction("Select"),
-        ...exactAction("Select this shift"),
-        ...exactAction("Select schedule")
-      ];
+      const selectButtons = matchingAction(/^(?:select|choose)(?:(?: this)? (?:shift|schedule))?$/i);
       if (selectButtons.length > 0) {
         await chrome.storage.local.set({
           applicationAutomation: { ...applicationAutomation, phase: "schedule-panel-open" }

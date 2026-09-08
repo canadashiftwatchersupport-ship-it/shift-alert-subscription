@@ -22,7 +22,7 @@ function showSettings() {
   // downloaded builds even when a browser retains the previous popup DOM.
   licenseView.style.display = "none";
   settingsView.style.display = "block";
-  chrome.storage.local.get(["watching", "intervalMinutes", "autoPrepare", "acceptAlternative", "jobType", "shiftType", "exactShiftStart", "exactShiftEnd", "locationPreference", "anywhereCanada", "amazonAccountMismatch", "license"], data => {
+  chrome.storage.local.get(["enabled", "watching", "intervalMinutes", "autoPrepare", "acceptAlternative", "jobType", "shiftType", "exactShiftStart", "exactShiftEnd", "locationPreference", "anywhereCanada", "amazonAccountMismatch", "license", "applicationAutomation"], data => {
     watching.checked = Boolean(data.watching);
     interval.value = String(data.intervalMinutes || 1);
     autoPrepare.checked = Boolean(data.autoPrepare);
@@ -35,7 +35,21 @@ function showSettings() {
     locationPreference.value = data.locationPreference || "";
     anywhereCanada.checked = Boolean(data.anywhereCanada);
     locationPreference.disabled = anywhereCanada.checked;
-    status.textContent = "Use Bind / verify Amazon account before starting. Account checks open a temporary background profile tab.";
+    const phase = data.applicationAutomation?.phase;
+    const phaseStatus = {
+      "open-listing": "Job detected. Opening the listing.",
+      "schedule-panel-open": "Listing opened. Looking for a matching shift.",
+      "no-matching-schedule": "No shift matched the selected day/night or exact-time filters.",
+      "confirmed-schedule": "Shift confirmed. Preparing the application.",
+      "applied-schedule": "Shift selected. Creating the application.",
+      "created-application": "Application created. Complete I agree and the remaining steps manually.",
+      "stopped-at-identity": "Stopped at identity verification for manual completion.",
+      "stopped-at-submit": "Application ready. Review and submit manually.",
+      unavailable: "That shift became unavailable. Watcher resumed."
+    }[phase];
+    status.textContent = phaseStatus || (data.enabled
+      ? (data.autoPrepare ? "Watcher is running; automatic preparation is on." : "Watcher is running; automatic preparation is off.")
+      : "Turn on Watch for openings and automatic preparation, then click Save.");
   });
 }
 
