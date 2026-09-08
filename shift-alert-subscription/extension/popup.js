@@ -24,7 +24,7 @@ function showSettings() {
   settingsView.style.display = "block";
   chrome.storage.local.get(["watching", "intervalMinutes", "autoPrepare", "acceptAlternative", "jobType", "shiftType", "exactShiftStart", "exactShiftEnd", "locationPreference", "anywhereCanada", "amazonAccountMismatch", "license"], data => {
     watching.checked = Boolean(data.watching);
-    interval.value = String(data.intervalMinutes || 1);
+    interval.value = String(data.intervalMinutes || (5 / 60));
     autoPrepare.checked = Boolean(data.autoPrepare);
     acceptAlternative.checked = Boolean(data.acceptAlternative);
     jobType.value = data.jobType || "any";

@@ -4,6 +4,7 @@ importScripts("config.js");
 
 const SEARCH_URL = "https://hiring.amazon.ca/app#/jobSearch";
 const ALARM = "amazon-canada-shift-scan";
+const DEFAULT_INTERVAL_MINUTES = 5 / 60;
 const COMPLETION_AUDIO_DOCUMENT = "offscreen.html";
 let completionAudioDocumentPromise = null;
 
@@ -54,15 +55,15 @@ async function verifyLicense(email, token) {
 }
 
 chrome.runtime.onInstalled.addListener(async () => {
-  await chrome.storage.local.set({ enabled: false, seen: {}, intervalMinutes: 1, autoPrepare: false, acceptAlternative: false, jobType: "any", locationPreference: "", anywhereCanada: false });
+  await chrome.storage.local.set({ enabled: false, seen: {}, intervalMinutes: DEFAULT_INTERVAL_MINUTES, autoPrepare: false, acceptAlternative: false, jobType: "any", locationPreference: "", anywhereCanada: false });
 });
 
-async function setAlarm(enabled, intervalMinutes = 1) {
+async function setAlarm(enabled, intervalMinutes = DEFAULT_INTERVAL_MINUTES) {
   await chrome.alarms.clear(ALARM);
   if (enabled) {
     await chrome.alarms.create(ALARM, {
-      delayInMinutes: 0.05,
-      periodInMinutes: Math.max(0.1667, Number(intervalMinutes) || 1)
+      delayInMinutes: 0.5,
+      periodInMinutes: Math.max(0.5, Number(intervalMinutes) || DEFAULT_INTERVAL_MINUTES)
     });
   }
 }
@@ -119,7 +120,7 @@ registerAccountProtectedListener((message, sender, sendResponse) => {
         return;
       }
       await chrome.storage.local.set({
-        intervalMinutes: Number(message.intervalMinutes) || 1,
+        intervalMinutes: Number(message.intervalMinutes) || DEFAULT_INTERVAL_MINUTES,
         autoPrepare: Boolean(message.autoPrepare),
         acceptAlternative: Boolean(message.acceptAlternative),
         jobType: message.jobType || "any",
@@ -149,7 +150,7 @@ registerAccountProtectedListener((message, sender, sendResponse) => {
         enabled: true,
         applicationAutomation: { active: false, phase: "watching" }
       });
-      await setAlarm(true, settings.intervalMinutes || 1);
+      await setAlarm(true, settings.intervalMinutes || DEFAULT_INTERVAL_MINUTES);
       sendResponse({ ok: true });
     });
     return true;

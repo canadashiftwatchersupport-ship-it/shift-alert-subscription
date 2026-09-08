@@ -314,14 +314,14 @@
     clearTimeout(window.__amazonFastRefreshTimer);
     if (!location.hash.includes("/jobSearch")) return;
     const { enabled, intervalMinutes } = await chrome.storage.local.get(["enabled", "intervalMinutes"]);
-    const minutes = Number(intervalMinutes) || 1;
+    const minutes = Number(intervalMinutes) || (5 / 60);
     if (!enabled || minutes >= 0.5) return;
     window.__amazonFastRefreshTimer = setTimeout(async () => {
       const latest = await chrome.storage.local.get("enabled");
       if (latest.enabled && location.hash.includes("/jobSearch")) {
         location.reload();
       }
-    }, Math.max(10000, Math.round(minutes * 60000)));
+    }, Math.max(5000, Math.round(minutes * 60000)));
   }
 
   setTimeout(report, 150);
