@@ -89,6 +89,18 @@ Invoke-RestMethod `
 
 The endpoint finds the latest weekly license for that email and returns its token. You may include `token` in the request when the customer has bought more than one weekly license and you need to target a specific one. The customer continues using the same email and token. The extension receives the new expiry the next time it verifies the license.
 
+## Revoke a refunded license
+
+`POST /v1/admin/licenses/revoke` immediately deactivates the customer's latest active license, sets its expiry to the revocation time, and records the refund revocation for auditing. The existing token stops verifying successfully. Supply the token as well when an email has more than one license and you need to target a particular purchase.
+
+```json
+{
+  "email": "customer@example.com"
+}
+```
+
+Use the same `X-Manual-License-Secret` header as the manual-issue and bonus endpoints. Repeating the request for an already revoked license is safe and returns `alreadyRevoked: true`.
+
 ## Notes
 
 - Cloudflare Workers is a no-card free deployment path.

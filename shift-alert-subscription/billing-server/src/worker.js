@@ -445,6 +445,16 @@ async function ensureSchema(env) {
       PRIMARY KEY (license_token, reason)
     )
   `).run();
+
+  await env.DB.prepare(`
+    CREATE TABLE IF NOT EXISTS license_revocations (
+      license_token TEXT PRIMARY KEY,
+      email TEXT NOT NULL,
+      reason TEXT NOT NULL,
+      previous_expires_at TEXT NOT NULL,
+      revoked_at TEXT NOT NULL
+    )
+  `).run();
 }
 
 async function upsertLicense(env, license) {
@@ -898,6 +908,79 @@ async function handleWeeklyBonusExtension(request, env) {
   });
 }
 
+async function handleLicenseRevocation(request, env) {
+  if (!isAuthorizedManualIssue(request, env)) {
+    return json({ ok: false, message: "Unauthorized." }, 401);
+  }
+
+  let body;
+  try {
+    body = await readJson(request);
+  } catch {
+    return json({ ok: false, message: "Invalid JSON payload." }, 400);
+  }
+
+  const email = String(body.email || "").trim().toLowerCase();
+  const token = String(body.token || "").trim();
+  if (!isValidEmail(email)) {
+    return json({ ok: false, message: "The customer's email is required." }, 400);
+  }
+
+  const license = token
+    ? await env.DB.prepare(`
+        SELECT token, email, plan, active, status, expires_at
+        FROM licenses
+        WHERE token = ?1 AND lower(email) = ?2
+        LIMIT 1
+      `).bind(token, email).first()
+    : await env.DB.prepare(`
+        SELECT token, email, plan, active, status, expires_at
+        FROM licenses
+        WHERE lower(email) = ?1
+        ORDER BY active DESC, expires_at DESC, updated_at DESC
+        LIMIT 1
+      `).bind(email).first();
+  if (!license) return json({ ok: false, message: "License not found." }, 404);
+
+  if (!license.active || license.status === "refunded-revoked") {
+    return json({
+      ok: true,
+      alreadyRevoked: true,
+      token: license.token,
+      email: license.email,
+      expiresAt: license.expires_at,
+    });
+  }
+
+  const revokedAt = new Date().toISOString();
+  await env.DB.batch([
+    env.DB.prepare(`
+      UPDATE licenses
+      SET active = 0, status = 'refunded-revoked', expires_at = ?2, updated_at = datetime('now')
+      WHERE token = ?1
+    `).bind(license.token, revokedAt),
+    env.DB.prepare(`
+      INSERT INTO license_revocations (license_token, email, reason, previous_expires_at, revoked_at)
+      VALUES (?1, ?2, 'refund', ?3, ?4)
+      ON CONFLICT(license_token) DO UPDATE SET
+        email = excluded.email,
+        reason = excluded.reason,
+        previous_expires_at = excluded.previous_expires_at,
+        revoked_at = excluded.revoked_at
+    `).bind(license.token, license.email, license.expires_at, revokedAt),
+  ]);
+
+  return json({
+    ok: true,
+    revoked: true,
+    reason: "refund",
+    token: license.token,
+    email: license.email,
+    previousExpiresAt: license.expires_at,
+    expiresAt: revokedAt,
+  });
+}
+
 async function seedSchemaOnFirstRequest(env) {
   try {
     await ensureSchema(env);
@@ -972,6 +1055,10 @@ export default {
 
     if (request.method === "POST" && pathname === "/v1/admin/licenses/extend-week") {
       return handleWeeklyBonusExtension(request, env);
+    }
+
+    if (request.method === "POST" && pathname === "/v1/admin/licenses/revoke") {
+      return handleLicenseRevocation(request, env);
     }
 
     if (request.method === "POST" && pathname === "/v1/razorpay/webhook") {
