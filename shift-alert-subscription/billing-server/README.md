@@ -101,6 +101,18 @@ The endpoint finds the latest weekly license for that email and returns its toke
 
 Use the same `X-Manual-License-Secret` header as the manual-issue and bonus endpoints. Repeating the request for an already revoked license is safe and returns `alreadyRevoked: true`.
 
+## Reset a client's Amazon account binding
+
+`POST /v1/admin/licenses/reset-amazon-account` clears the Amazon account attached to the customer's latest active license without changing its token or expiry. The reset is recorded for auditing. After the reset, the customer signs into the new Amazon account, opens the extension, and clicks **Bind / verify Amazon account**.
+
+```json
+{
+  "email": "customer@example.com"
+}
+```
+
+Use the same `X-Manual-License-Secret` header. You may also include `token` when the email has more than one license and you need to target a particular one.
+
 ## Notes
 
 - Cloudflare Workers is a no-card free deployment path.

@@ -455,6 +455,16 @@ async function ensureSchema(env) {
       revoked_at TEXT NOT NULL
     )
   `).run();
+
+  await env.DB.prepare(`
+    CREATE TABLE IF NOT EXISTS amazon_account_binding_resets (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      license_token TEXT NOT NULL,
+      email TEXT NOT NULL,
+      previous_account_hash TEXT NOT NULL,
+      reset_at TEXT NOT NULL
+    )
+  `).run();
 }
 
 async function upsertLicense(env, license) {
@@ -981,6 +991,68 @@ async function handleLicenseRevocation(request, env) {
   });
 }
 
+async function handleAmazonBindingReset(request, env) {
+  if (!isAuthorizedManualIssue(request, env)) {
+    return json({ ok: false, message: "Unauthorized." }, 401);
+  }
+
+  let body;
+  try {
+    body = await readJson(request);
+  } catch {
+    return json({ ok: false, message: "Invalid JSON payload." }, 400);
+  }
+
+  const email = String(body.email || "").trim().toLowerCase();
+  const token = String(body.token || "").trim();
+  if (!isValidEmail(email)) {
+    return json({ ok: false, message: "The customer's email is required." }, 400);
+  }
+
+  const license = token
+    ? await env.DB.prepare(`
+        SELECT token, email, active, expires_at
+        FROM licenses
+        WHERE token = ?1 AND lower(email) = ?2
+        LIMIT 1
+      `).bind(token, email).first()
+    : await env.DB.prepare(`
+        SELECT token, email, active, expires_at
+        FROM licenses
+        WHERE lower(email) = ?1
+        ORDER BY active DESC, expires_at DESC, updated_at DESC
+        LIMIT 1
+      `).bind(email).first();
+  if (!license) return json({ ok: false, message: "License not found." }, 404);
+  if (!license.active || Date.parse(license.expires_at) <= Date.now()) {
+    return json({ ok: false, message: "The license is inactive or expired." }, 400);
+  }
+
+  await env.DB.prepare("CREATE TABLE IF NOT EXISTS license_amazon_accounts (license_token TEXT PRIMARY KEY, account_hash TEXT NOT NULL, bound_at TEXT NOT NULL DEFAULT (datetime('now')))").run();
+  const binding = await env.DB.prepare("SELECT account_hash FROM license_amazon_accounts WHERE license_token = ?1 LIMIT 1").bind(license.token).first();
+  if (!binding) {
+    return json({ ok: true, alreadyReset: true, token: license.token, email: license.email });
+  }
+
+  const resetAt = new Date().toISOString();
+  await env.DB.batch([
+    env.DB.prepare("DELETE FROM license_amazon_accounts WHERE license_token = ?1").bind(license.token),
+    env.DB.prepare(`
+      INSERT INTO amazon_account_binding_resets (license_token, email, previous_account_hash, reset_at)
+      VALUES (?1, ?2, ?3, ?4)
+    `).bind(license.token, license.email, binding.account_hash, resetAt),
+  ]);
+
+  return json({
+    ok: true,
+    reset: true,
+    token: license.token,
+    email: license.email,
+    resetAt,
+    message: "Amazon account binding cleared. The customer can now bind this license to their new Amazon account.",
+  });
+}
+
 async function seedSchemaOnFirstRequest(env) {
   try {
     await ensureSchema(env);
@@ -1059,6 +1131,10 @@ export default {
 
     if (request.method === "POST" && pathname === "/v1/admin/licenses/revoke") {
       return handleLicenseRevocation(request, env);
+    }
+
+    if (request.method === "POST" && pathname === "/v1/admin/licenses/reset-amazon-account") {
+      return handleAmazonBindingReset(request, env);
     }
 
     if (request.method === "POST" && pathname === "/v1/razorpay/webhook") {
