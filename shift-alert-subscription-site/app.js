@@ -53,8 +53,8 @@
 
   setText("[data-business-name]", businessName);
   setEmailLinks("[data-support-email]", supportEmail);
-  setHref("[data-payment='day']", "#checkout", "Buy C$27 7-Day Pass");
-  setHref("[data-payment='month']", "#checkout", "Buy C$72 30-Day Pass");
+  setHref("[data-payment='day']", "#checkout", "Buy C$36 7-Day Pass");
+  setHref("[data-payment='month']", "#checkout", "Buy C$54 30-Day Pass");
   setHref("[data-chrome-store]", chromeUrl, "Add to Chrome");
 
   document.querySelectorAll("a.is-disabled").forEach((link) => {
@@ -81,7 +81,7 @@
     const container = document.querySelector("#paypal-button-container");
     const status = document.querySelector("#checkout-status");
     const isMonth = plan === "30-day";
-    document.querySelector("#checkout-title").textContent = isMonth ? "30-Day Pass — C$72" : "7-Day Pass — C$27";
+    document.querySelector("#checkout-title").textContent = isMonth ? "30-Day Pass — C$54" : "7-Day Pass — C$36";
     document.querySelector("#checkout-summary").textContent = "Complete the payment securely with PayPal. Your license will be created and emailed immediately after capture.";
     container.replaceChildren();
     status.textContent = "Loading secure checkout…";

@@ -67,7 +67,7 @@ Then call `POST /v1/admin/licenses/manual` with a bearer token and the customer'
 }
 ```
 
-For an order ID, set `resourceType` to `order`. The Worker accepts only completed CAD payments matching the configured C$27 weekly pass or C$72 30-weekly pass, stores the license idempotently, and sends the token email when Resend is configured. Repeating the same request returns the existing token instead of issuing a duplicate.
+For an order ID, set `resourceType` to `order`. The Worker accepts only completed CAD payments matching the configured C$36 weekly pass or C$54 30-day pass, stores the license idempotently, and sends the token email when Resend is configured. Repeating the same request returns the existing token instead of issuing a duplicate.
 
 ## Add a one-week customer bonus
 

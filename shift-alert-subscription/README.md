@@ -4,8 +4,8 @@ This customer edition detects matching job cards and opens the official Amazon l
 
 ## Plans
 
-- Weekly Activation: C$27 for 7 days
-- 30-Day Activation: C$72 for 30 days
+- Weekly Activation: C$36 for 7 days
+- 30-Day Activation: C$54 for 30 days
 
 ## Parts
 

@@ -43,7 +43,7 @@ async function verifyLicense(email, token) {
     const response = await fetch(`${SHIFT_ALERT_CONFIG.licenseApiBase}/v1/licenses/verify`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ email, token })
+      body: JSON.stringify({ email: String(email || "").trim().toLowerCase(), token: String(token || "").trim() })
     });
     const license = await response.json();
     if (!response.ok || !license.active) return { ok: false, message: license.message || "License not active." };

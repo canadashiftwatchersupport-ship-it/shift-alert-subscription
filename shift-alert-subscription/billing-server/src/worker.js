@@ -1,7 +1,7 @@
 const textEncoder = new TextEncoder();
 
-const DEFAULT_WEEK_AMOUNT = 2700;
-const DEFAULT_MONTH_AMOUNT = 7200;
+const DEFAULT_WEEK_AMOUNT = 3600;
+const DEFAULT_MONTH_AMOUNT = 5400;
 const DEFAULT_WEEK_HOURS = 168;
 const DEFAULT_MONTH_DAYS = 30;
 const CORS_HEADERS = {
@@ -592,12 +592,14 @@ async function markEventSeen(env, eventId) {
 }
 
 async function buildLicenseResponse(env, email, token) {
+  const normalizedEmail = String(email || "").trim().toLowerCase();
+  const normalizedToken = String(token || "").trim();
   const row = await env.DB.prepare(`
     SELECT token, email, plan, amount, active, status, payment_link_id, expires_at, updated_at
     FROM licenses
-    WHERE token = ?1 AND email = ?2 AND active = 1 AND expires_at > datetime('now')
+    WHERE token = ?1 AND lower(email) = ?2 AND active = 1 AND expires_at > datetime('now')
     LIMIT 1
-  `).bind(token, email).first();
+  `).bind(normalizedToken, normalizedEmail).first();
 
   if (!row) {
     return json({ active: false, message: "License is invalid or expired." }, 401);
