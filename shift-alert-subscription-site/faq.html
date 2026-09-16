@@ -14,6 +14,7 @@
       <a class="brand" href="index.html">Canada<span data-business-name>Shift Watcher</span></a>
       <nav class="nav-links" aria-label="Primary">
         <a href="index.html#pricing">Pricing</a>
+        <a href="guides.html">Guides</a>
         <a href="privacy.html">Privacy</a>
         <a href="contact.html">Contact</a>
       </nav>
@@ -33,16 +34,20 @@
       </section>
       <section class="faq-item">
         <h3>How do I get the extension?</h3>
-        <p>You can download the extension from the website for free. After checkout, your activation license unlocks paid access. When the Chrome Web Store URL is ready, you can connect it in config.js and the site will show the real link.</p>
+        <p>Download the ZIP from the website, extract it, and load the folder from <code>chrome://extensions</code> using Developer mode. The <a href="installation-guide.html">installation guide</a> explains every step.</p>
       </section>
       <section class="faq-item">
         <h3>How do payments work?</h3>
-        <p>Payment buttons on the site point to configurable hosted checkout URLs. Payment verification and license activation must happen on the server after the customer pays.</p>
+        <p>The website creates a secure PayPal order for the selected plan. After PayPal confirms capture, the server verifies the amount, creates the licence, displays the token, and sends it to the checkout email.</p>
       </section>
       <section class="faq-item">
         <h3>What is the support email?</h3>
-        <p>The live website should use the value you set in config.js for SUPPORT_EMAIL. See the Contact page for the configured address.</p>
+        <p>Visit the Contact page for the current support address. Include the purchase email and PayPal order reference when asking about payment or activation.</p>
       </section>
+      <section class="faq-item"><h3>Will my licence work after an extension update?</h3><p>Yes, an active licence remains stored on the licence server. Keep the purchase email and token because Chrome may clear local extension data when an unpacked copy is removed.</p></section>
+      <section class="faq-item"><h3>Why can a job disappear after it is detected?</h3><p>Availability changes quickly. A card can remain visible after its shifts are taken. The extension can retry, but it cannot reserve or create a slot.</p></section>
+      <section class="faq-item"><h3>Can I choose part-time and flex opportunities together?</h3><p>Yes. Select Part-time + Flex time in the employment-type setting. Choose Any if you want all supported types.</p></section>
+      <section class="faq-item"><h3>Is an exact shift time required?</h3><p>No. If no time is entered, monitoring works normally. When a preferred time is entered, it becomes an additional matching condition.</p></section>
       <section class="faq-item">
         <h3>Is Canada Shift Watcher affiliated with any workplace platform?</h3>
         <p>No. It is an independent product and must not claim affiliation or endorsement unless you have actual authorization.</p>
@@ -56,6 +61,7 @@
         <a href="privacy.html">Privacy Policy</a>
         <a href="terms.html">Terms & Conditions</a>
         <a href="refund.html">Refund & Cancellation Policy</a>
+        <a href="guides.html">Guides</a>
         <a href="contact.html">Contact</a>
         <a href="index.html">Home</a>
         <a href="#" data-chrome-store><span data-label>Chrome Web Store</span></a>

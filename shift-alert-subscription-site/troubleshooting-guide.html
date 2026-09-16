@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="Troubleshoot licence activation, refreshing, filters, notifications, and account binding in Canada Shift Watcher.">
+  <title>Troubleshooting Guide | Canada Shift Watcher</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar"><div class="shell nav"><a class="brand" href="index.html">Canada<span data-business-name>Shift Watcher</span></a><nav class="nav-links" aria-label="Primary"><a href="guides.html">Guides</a><a href="index.html#pricing">Pricing</a><a href="faq.html">FAQ</a><a href="contact.html">Contact</a></nav></div></header>
+  <main class="shell page article">
+    <p class="eyebrow">TROUBLESHOOTING</p>
+    <h1>Find the cause before changing settings</h1>
+    <p class="lede">Most problems come from an old page context, a filter that is too narrow, blocked browser permissions, or a mismatch between the signed-in account and the licence binding.</p>
+
+    <h2>Start with this five-step check</h2>
+    <ol>
+      <li>Open <code>chrome://extensions</code> and confirm Canada Shift Watcher is enabled.</li>
+      <li>Confirm the extension card shows version 1.1.13 or later.</li>
+      <li>Reload the official job-search page once after installing or updating.</li>
+      <li>Open the popup and confirm monitoring is enabled and settings are saved.</li>
+      <li>Temporarily use Any employment type and Anywhere in Canada to test without restrictive filters.</li>
+    </ol>
+
+    <h2>Licence will not activate</h2>
+    <p>Copy the email and token directly from the licence email. Remove spaces accidentally added before or after either value. The purchase email and licence email must refer to the same record.</p>
+    <p>If the licence was refunded, revoked, or has reached its expiry time, activation will be rejected. If the licence is active but the Amazon account has changed, contact support to request a binding reset. Support should never ask for the Amazon password.</p>
+
+    <h2>The page is not refreshing</h2>
+    <p>Check that the current address belongs to the supported Canadian job-search page. The extension does not run on unrelated pages. Reload the tab after updating an unpacked extension because an old tab can retain an invalid extension context.</p>
+    <p>Chrome may pause background work when the computer sleeps. Keep the computer awake, keep Chrome running, and confirm that battery-saving tools are not suspending it. A page refresh and the “Expand your search” retry are separate actions, so one can occur without the other.</p>
+
+    <h2>A visible job is not being selected</h2>
+    <p>First test with all optional filters disabled. Then restore location, employment type, and shift time one at a time. This identifies which displayed value differs from the saved preference.</p>
+    <p>The official search page can continue displaying a job card after its available shifts have been taken. When the page reports that the selected job has no available shifts, the extension can return and retry while that listing remains visible. It cannot select a slot that the official system says is unavailable.</p>
+
+    <h2>No sound or notification</h2>
+    <ul>
+      <li>Allow Chrome notifications in Windows notification settings.</li>
+      <li>Turn off Do Not Disturb while testing.</li>
+      <li>Check the correct audio output device and volume.</li>
+      <li>Keep the extension enabled and the browser open.</li>
+    </ul>
+
+    <h2>Chrome reports “Extension context invalidated”</h2>
+    <p>This normally means the extension was reloaded or updated while the job-search tab still contained the previous script. Close or reload the affected tab. Open a fresh supported search page and enable monitoring again if needed.</p>
+
+    <h2>Settings disappear after an update</h2>
+    <p>Replacing an unpacked extension can create a new extension identity if the installation path or package changes. Record important settings before removing an old copy. Keep your purchase email and token so you can activate again when the licence remains valid.</p>
+
+    <h2>When to contact support</h2>
+    <p>Contact support when payment completed but no licence arrived, a valid licence is rejected, or an account-binding reset is needed. Include the purchase email, PayPal order reference, extension version, and the exact error message. Do not include passwords, one-time codes, or identity documents.</p>
+    <div class="callout"><strong>Availability is outside the extension’s control.</strong> A technically working extension may show no result when the official site has no matching opportunities or when another applicant takes the remaining slot first.</div>
+    <p><a class="button secondary" href="contact.html">Contact support</a></p>
+  </main>
+  <footer class="shell footer"><div class="footer-top"><strong>&copy; Canada Shift Watcher</strong><div class="footer-links"><a href="guides.html">All Guides</a><a href="privacy.html">Privacy</a><a href="terms.html">Terms</a><a href="contact.html">Contact</a><a href="index.html">Home</a></div></div></footer>
+  <script src="config.js"></script><script src="app.js"></script>
+</body>
+</html>

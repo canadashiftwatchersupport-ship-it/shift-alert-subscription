@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="Step-by-step instructions to install, activate, and update Canada Shift Watcher in Google Chrome.">
+  <title>Installation and Activation Guide | Canada Shift Watcher</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar"><div class="shell nav"><a class="brand" href="index.html">Canada<span data-business-name>Shift Watcher</span></a><nav class="nav-links" aria-label="Primary"><a href="guides.html">Guides</a><a href="index.html#pricing">Pricing</a><a href="faq.html">FAQ</a><a href="contact.html">Contact</a></nav></div></header>
+  <main class="shell page article">
+    <p class="eyebrow">INSTALLATION GUIDE</p>
+    <h1>Install and activate the extension</h1>
+    <p class="lede">Canada Shift Watcher is currently distributed as a ZIP file. Follow these steps in Chrome on a desktop or laptop computer.</p>
+    <div class="toc"><strong>On this page</strong><ol><li><a href="#download">Download and extract</a></li><li><a href="#load">Load into Chrome</a></li><li><a href="#activate">Activate your licence</a></li><li><a href="#bind">Bind your account</a></li><li><a href="#update">Install an update</a></li></ol></div>
+
+    <h2 id="download">1. Download and extract the ZIP</h2>
+    <ol>
+      <li>Use the Download extension button on the official Canada Shift Watcher website.</li>
+      <li>Open your Downloads folder and locate <code>canada-shift-watcher-extension.zip</code>.</li>
+      <li>Right-click the file, choose Extract All, and select a permanent folder.</li>
+      <li>Keep that extracted folder after installation. Chrome loads the extension from it.</li>
+    </ol>
+    <p>If you open the ZIP without extracting it, Chrome cannot load the extension correctly. The folder you select should contain <code>manifest.json</code>, <code>background.js</code>, and the other extension files.</p>
+
+    <h2 id="load">2. Load the extension into Chrome</h2>
+    <ol>
+      <li>Enter <code>chrome://extensions</code> in Chrome’s address bar.</li>
+      <li>Turn on Developer mode using the switch near the top-right corner.</li>
+      <li>Select Load unpacked.</li>
+      <li>Choose the extracted extension folder, then select the folder.</li>
+      <li>Pin Canada Shift Watcher from Chrome’s Extensions menu so its icon remains visible.</li>
+    </ol>
+    <p>The extension card should appear without an error banner. If Chrome says the manifest is missing, you selected the parent folder instead of the folder containing <code>manifest.json</code>.</p>
+
+    <h2 id="activate">3. Activate your licence</h2>
+    <p>Open the extension popup. Enter the same email address used during checkout and the licence token sent after payment. Email matching ignores capitalization and accidental spaces, but using the exact checkout email avoids confusion.</p>
+    <ol>
+      <li>Paste the purchase email into the Email field.</li>
+      <li>Paste the complete token into the License token field.</li>
+      <li>Select Activate licence.</li>
+      <li>Wait for the settings screen to appear before closing the popup.</li>
+    </ol>
+    <div class="callout"><strong>Keep the token private.</strong> It controls paid access and should not be posted publicly or shared with another customer.</div>
+
+    <h2 id="bind">4. Bind the Amazon account</h2>
+    <p>Sign in to the supported hiring website before choosing Bind / verify Amazon account. The extension reads the signed-in account identifier and sends a protected hash to the licence server. It does not read or transmit the Amazon password.</p>
+    <p>A licence is intended for the customer account that activates it. If you replace your Amazon account, contact support from the purchase email and request an account-binding reset. After support resets it, sign into the new account and bind again.</p>
+
+    <h2 id="update">5. Install a newer version</h2>
+    <p>Download and extract the new ZIP to its own folder. On <code>chrome://extensions</code>, remove the old unpacked copy, choose Load unpacked, and select the new folder. Then open the popup and confirm your settings.</p>
+    <p>Your licence remains on the server and normally works with an updated copy. Keep the purchase email and token available in case Chrome clears local extension storage when the old copy is removed.</p>
+
+    <h2>Safety checklist</h2>
+    <ul>
+      <li>Download only from the official website.</li>
+      <li>Never send a password, one-time code, or identity document to support.</li>
+      <li>Review the official page before taking any action.</li>
+      <li>Complete integrity notices, verification, and final submission manually.</li>
+    </ul>
+    <p><a class="button secondary" href="settings-guide.html">Continue to settings guide</a></p>
+  </main>
+  <footer class="shell footer"><div class="footer-top"><strong>&copy; Canada Shift Watcher</strong><div class="footer-links"><a href="guides.html">All Guides</a><a href="privacy.html">Privacy</a><a href="terms.html">Terms</a><a href="contact.html">Contact</a><a href="index.html">Home</a></div></div></footer>
+  <script src="config.js"></script><script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="Learn how to configure locations, employment types, shift times, refresh intervals, and notifications in Canada Shift Watcher.">
+  <title>Filters and Refresh Settings Guide | Canada Shift Watcher</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar"><div class="shell nav"><a class="brand" href="index.html">Canada<span data-business-name>Shift Watcher</span></a><nav class="nav-links" aria-label="Primary"><a href="guides.html">Guides</a><a href="index.html#pricing">Pricing</a><a href="faq.html">FAQ</a><a href="contact.html">Contact</a></nav></div></header>
+  <main class="shell page article">
+    <p class="eyebrow">SETTINGS GUIDE</p>
+    <h1>Choose filters that match your availability</h1>
+    <p class="lede">Begin with broad settings, confirm that monitoring works, and then narrow the results. Each filter is optional unless you choose a value.</p>
+    <div class="toc"><strong>On this page</strong><ol><li><a href="#employment">Employment type</a></li><li><a href="#location">Locations</a></li><li><a href="#time">Shift times</a></li><li><a href="#refresh">Refreshing</a></li><li><a href="#notifications">Notifications</a></li></ol></div>
+
+    <h2 id="employment">Employment type</h2>
+    <p>Select Any when you want to review all supported employment types. Full-time, Part-time, and Flex time limit matching to that category. Part-time + Flex time accepts either of those two categories, which is useful when your availability fits both.</p>
+    <p>The listing text comes from the official page and can change. If you see an opportunity you expected to match, temporarily choose Any and observe how the official site labels it.</p>
+
+    <h2 id="location">Location filtering</h2>
+    <p>Enter one place per line or separate locations with commas. Use the city or location wording displayed on the official job card. Small spelling differences can prevent a strict text match, so start with the city name rather than a full street address.</p>
+    <p>Choose Anywhere in Canada to disable location filtering. This is useful for testing and for customers who are willing to relocate. Turn it off when you want the entered location list to apply.</p>
+    <div class="callout"><strong>Example:</strong> A customer available in Mississauga and Brampton can enter those two city names on separate lines. The extension then ignores listings whose displayed location does not contain either name.</div>
+
+    <h2 id="time">Preferred shift times</h2>
+    <p>Shift-time filtering is optional. Enter the schedule you are willing to accept after you have seen how the official page formats it. When the same displayed timing appears again, the extension can prioritize that matching shift.</p>
+    <p>If the field is empty, timing does not block normal operation. If the selected time is full and the alternative-schedule option is enabled, the extension may consider another displayed schedule. Always review the actual schedule before continuing.</p>
+    <h3>Day and night shifts</h3>
+    <p>Labels such as “day” and “night” can cover different hours across locations. An exact saved time is more precise than relying only on those labels. Use a broader filter when you are flexible, and an exact time when your availability is fixed.</p>
+
+    <h2 id="refresh">Refresh behaviour</h2>
+    <p>The regular refresh interval is chosen by the customer. Short intervals check more often but can use more network and computer resources. A longer interval is calmer and may be appropriate when openings are less frequent.</p>
+    <p>When the official page displays “Expand your search,” the extension can retry that action independently from the regular page refresh. The retry does not guarantee new jobs; it asks the official page to broaden or re-run its current search.</p>
+    <table class="guide-table">
+      <thead><tr><th>Situation</th><th>Suggested setting</th></tr></thead>
+      <tbody>
+        <tr><td>Testing a new installation</td><td>Use broad filters and a moderate regular interval so you can confirm status messages.</td></tr>
+        <tr><td>Searching specific cities</td><td>Enter city names exactly as they appear and disable Anywhere in Canada.</td></tr>
+        <tr><td>Available for part-time or flex</td><td>Select Part-time + Flex time.</td></tr>
+        <tr><td>Only one schedule works</td><td>Save the displayed shift time and leave alternative schedule disabled.</td></tr>
+      </tbody>
+    </table>
+
+    <h2 id="notifications">Sound and browser notifications</h2>
+    <p>Chrome and Windows can block notifications independently. Allow notifications for Chrome in Windows Settings and avoid Focus Assist or Do Not Disturb while monitoring. Keep the computer awake and the supported search tab open.</p>
+    <p>The completion beep helps draw attention after the extension prepares an application step. It is still your responsibility to inspect the page and complete any required manual action.</p>
+
+    <h2>Save and verify</h2>
+    <p>After changing settings, save them and reopen the popup to confirm the values remain. Then return to the official job-search page. If the page was already open during an extension update, reload it once so Chrome injects the current content script.</p>
+    <p><a class="button secondary" href="troubleshooting-guide.html">Open troubleshooting guide</a></p>
+  </main>
+  <footer class="shell footer"><div class="footer-top"><strong>&copy; Canada Shift Watcher</strong><div class="footer-links"><a href="guides.html">All Guides</a><a href="privacy.html">Privacy</a><a href="terms.html">Terms</a><a href="contact.html">Contact</a><a href="index.html">Home</a></div></div></footer>
+  <script src="config.js"></script><script src="app.js"></script>
+</body>
+</html>

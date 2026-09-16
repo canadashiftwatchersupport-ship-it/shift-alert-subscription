@@ -51,7 +51,10 @@
   const businessName = getValue(config.businessName, "Canada Shift Watcher");
   const chromeUrl = getValue(config.chromeWebStoreUrl, "CHROME_WEB_STORE_URL");
 
-  setText("[data-business-name]", businessName);
+  document.querySelectorAll("[data-business-name]").forEach((element) => {
+    const brandSuffix = businessName.replace(/^Canada\s+/i, "").trim();
+    element.textContent = element.closest(".brand") ? (brandSuffix || businessName) : businessName;
+  });
   setEmailLinks("[data-support-email]", supportEmail);
   setHref("[data-payment='day']", "#checkout", "Buy C$36 7-Day Pass");
   setHref("[data-payment='month']", "#checkout", "Buy C$54 30-Day Pass");

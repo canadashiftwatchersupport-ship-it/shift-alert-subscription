@@ -5,6 +5,10 @@ This folder contains the public website for Canada Shift Watcher, an independent
 ## Public pages
 
 - `index.html`
+- `guides.html`
+- `installation-guide.html`
+- `settings-guide.html`
+- `troubleshooting-guide.html`
 - `faq.html`
 - `privacy.html`
 - `terms.html`
@@ -16,12 +20,12 @@ This folder contains the public website for Canada Shift Watcher, an independent
 - Weekly Activation: C$36 for 7-day access, one-time payment
 - 30-Day Activation: C$54 for 30-day access, one-time payment
 
-## Config values to edit
+## Checkout and config
 
-Open `config.js` and replace:
+The website creates PayPal orders through the licence Worker. Prices are configured server-side and must match the public prices shown here.
 
-- `dayPassPaymentUrl` with your 7-Day Pass hosted checkout link
-- `monthPassPaymentUrl` with your 30-Day Pass hosted checkout link
+Open `config.js` to maintain:
+
 - `chromeWebStoreUrl` with your Chrome Web Store listing URL
 - `supportEmail` with your support email address
 
@@ -34,6 +38,10 @@ Do not place payment processor secret keys, webhook secrets, or database credent
 Upload these files together:
 
 - `index.html`
+- `guides.html`
+- `installation-guide.html`
+- `settings-guide.html`
+- `troubleshooting-guide.html`
 - `faq.html`
 - `privacy.html`
 - `terms.html`
@@ -43,7 +51,15 @@ Upload these files together:
 - `app.js`
 - `config.js`
 - `favicon.svg`
-- `Canada-Shift-Watcher-paid-v1.4.1-new.zip`
+- `robots.txt`
+- `sitemap.xml`
+- `downloads/canada-shift-watcher-extension.zip`
+
+## Google AdSense preparation
+
+The site includes original installation, configuration, and troubleshooting guides; a privacy disclosure for Google advertising cookies; `robots.txt`; and `sitemap.xml`. Do not add a fake publisher ID. After AdSense supplies the real `ca-pub-...` ID, add Google’s verification snippet to each page and publish `ads.txt` with that same publisher ID. Configure an approved consent message for visitors in regions where consent is required.
+
+Keep ads on informational pages and away from payment, download, navigation, and other interactive controls. Never place AdSense inside the extension or automatically refresh a page containing ads.
 
 ## Before sending for payment review
 
