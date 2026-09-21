@@ -1,7 +1,10 @@
 const AMAZON_ACCOUNT_URL = 'https://hiring.amazon.ca/app#/contactInformation';
 let accountCheckPending = null;
+let recentAccountCheck = null;
+const ACCOUNT_CHECK_REUSE_MS = 15000;
 
 async function pauseForAccount(message) {
+  recentAccountCheck = null;
   await chrome.storage.local.set({ enabled: false, watching: false, accountStatus: message, applicationAutomation: { active: false, phase: 'account-check-required' } });
   await chrome.alarms.clear('amazon-canada-shift-scan');
   return { ok: false, message };
@@ -24,8 +27,17 @@ async function readCurrentAmazonAccount() {
   }
 }
 
-async function verifyCurrentAmazonAccount(bind = false) {
-  // Share concurrent checks, but never reuse a previous completed account reading.
+async function verifyCurrentAmazonAccount(bind = false, sourceTabId = null) {
+  // A just-verified job-search tab can complete its immediate shift-selection
+  // steps without reopening the account page for every button. Binding and
+  // periodic background checks still perform a fresh verification.
+  if (!bind && sourceTabId && recentAccountCheck?.tabId === sourceTabId &&
+      Date.now() - recentAccountCheck.checkedAt < ACCOUNT_CHECK_REUSE_MS) {
+    const { license } = await chrome.storage.local.get('license');
+    if (license?.active && license.token === recentAccountCheck.token &&
+        Date.parse(license.expiresAt) > Date.now()) return { ok: true };
+  }
+  // Share concurrent checks.
   if (accountCheckPending) {
     if (!bind) return accountCheckPending;
     await accountCheckPending;
@@ -43,6 +55,7 @@ async function verifyCurrentAmazonAccount(bind = false) {
       const result = await response.json();
       if (!response.ok || !result.ok) return pauseForAccount(result.message || 'Account verification failed.');
       await chrome.storage.local.set({ accountStatus: 'Amazon account verified.' });
+      recentAccountCheck = sourceTabId ? { tabId: sourceTabId, token: license.token, checkedAt: Date.now() } : null;
       return { ok: true };
     } catch {
       return pauseForAccount('Could not verify your Amazon account. Sign in to Amazon and try again.');
@@ -59,6 +72,7 @@ function registerAccountProtectedListener(listener) {
     const isPopup = !sender.tab && sender.id === chrome.runtime.id;
     if (message.type === 'bind-amazon-account') {
       if (!isPopup) { reply({ ok: false }); return; }
+      recentAccountCheck = null;
       verifyCurrentAmazonAccount(true).then(reply); return true;
     }
     const needsCheck = message.type === 'check-amazon-account' ||
@@ -67,7 +81,7 @@ function registerAccountProtectedListener(listener) {
       message.type === 'resume-watching';
     if (needsCheck) {
       if (!isContent && !isPopup) { reply({ ok: false }); return; }
-      verifyCurrentAmazonAccount().then(result => {
+      verifyCurrentAmazonAccount(false, isContent ? sender.tab.id : null).then(result => {
         if (!result.ok || message.type === 'check-amazon-account') reply(result);
         else listener(message, sender, reply);
       });
