@@ -81,10 +81,19 @@ function registerAccountProtectedListener(listener) {
       message.type === 'resume-watching';
     if (needsCheck) {
       if (!isContent && !isPopup) { reply({ ok: false }); return; }
-      verifyCurrentAmazonAccount(false, isContent ? sender.tab.id : null).then(result => {
-        if (!result.ok || message.type === 'check-amazon-account') reply(result);
-        else listener(message, sender, reply);
-      });
+      // A mutation scan often reports the same cards repeatedly. Only a new
+      // candidate needs the account-page round trip before it can be handled.
+      const checkForNewJobs = message.type === 'jobs-found'
+        ? chrome.storage.local.get('seen').then(({ seen }) =>
+            message.jobs.some(job => job?.id && !(seen || {})[job.id]))
+        : Promise.resolve(true);
+      checkForNewJobs.then(hasNewJobs => {
+        if (!hasNewJobs) { reply({ ok: true, prepareJobId: null }); return; }
+        return verifyCurrentAmazonAccount(false, isContent ? sender.tab.id : null).then(result => {
+          if (!result.ok || message.type === 'check-amazon-account') reply(result);
+          else listener(message, sender, reply);
+        });
+      }).catch(error => reply({ ok: false, message: String(error) }));
       return true;
     }
     return listener(message, sender, reply);

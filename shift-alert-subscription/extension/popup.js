@@ -43,6 +43,7 @@ function showSettings() {
       "confirmed-schedule": "Shift confirmed. Preparing the application.",
       "applied-schedule": "Shift selected. Creating the application.",
       "created-application": "Application created. Complete I agree and the remaining steps manually.",
+      "manual-agreement": "Review Amazon's agreement and complete the remaining steps yourself.",
       "stopped-at-identity": "Stopped at identity verification for manual completion.",
       "stopped-at-submit": "Application ready. Review and submit manually.",
       unavailable: "That shift became unavailable. Watcher resumed."

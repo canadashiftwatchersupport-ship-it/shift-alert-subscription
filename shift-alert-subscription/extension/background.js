@@ -173,6 +173,25 @@ registerAccountProtectedListener((message, sender, sendResponse) => {
     return true;
   }
 
+  if (message.type === "manual-agreement-ready") {
+    if (!sender.tab || !sender.url?.startsWith("https://hiring.amazon.ca/")) {
+      sendResponse({ ok: false });
+      return;
+    }
+    chrome.storage.local.set({
+      "notification:amazon-shift:manual-agreement": { tabId: sender.tab.id }
+    }).then(() => chrome.notifications.create("amazon-shift:manual-agreement", {
+      type: "basic",
+      iconUrl: "icon.svg",
+      title: "Your application needs you",
+      message: "Review Amazon's agreement and decide whether to continue yourself.",
+      priority: 2,
+      requireInteraction: true
+    })).then(() => sendResponse({ ok: true }))
+      .catch(error => sendResponse({ ok: false, message: String(error) }));
+    return true;
+  }
+
   if (message.type === "jobs-found") {
     Promise.resolve(amazonAccountAllowed(message.accountKey)).then(ok => ok ? handleJobs(message.jobs, sender.tab) : null).then(result => sendResponse({
       ok: true,
@@ -275,6 +294,21 @@ async function handleJobs(jobs, sourceTab) {
 
 chrome.notifications.onClicked.addListener(async notificationId => {
   if (!notificationId.startsWith("amazon-shift:")) return;
+  if (notificationId === "amazon-shift:manual-agreement") {
+    const key = `notification:${notificationId}`;
+    const stored = await chrome.storage.local.get(key);
+    const tabId = stored[key]?.tabId;
+    if (tabId) {
+      try {
+        const tab = await chrome.tabs.get(tabId);
+        await chrome.tabs.update(tab.id, { active: true });
+        await chrome.windows.update(tab.windowId, { focused: true });
+      } catch { /* The application tab was closed. */ }
+    }
+    await chrome.notifications.clear(notificationId);
+    await chrome.storage.local.remove(key);
+    return;
+  }
   const key = `notification:${notificationId}`;
   const stored = await chrome.storage.local.get(key);
   const target = stored[key] || {};

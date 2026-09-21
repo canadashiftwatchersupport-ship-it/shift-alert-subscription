@@ -199,9 +199,6 @@
     const { autoPrepare, acceptAlternative, applicationAutomation, shiftType = "any", exactShiftStart, exactShiftEnd } = await chrome.storage.local.get(["autoPrepare", "acceptAlternative", "applicationAutomation", "shiftType", "exactShiftStart", "exactShiftEnd"]);
     if (!autoPrepare || !applicationAutomation?.active) return;
     if (location.hash.startsWith("#/contactInformation")) return;
-    const accountCheck = await chrome.runtime.sendMessage({ type: "check-amazon-account" }).catch(() => ({ ok: false }));
-    if (!accountCheck?.ok) return;
-
     // Final boundary: never click Submit. Stop as soon as it is visible.
     if (exactAction("Submit").length > 0 || exactAction("Submit application").length > 0) {
       await chrome.storage.local.set({
@@ -217,10 +214,16 @@
       await chrome.storage.local.set({ applicationAutomation: { ...applicationAutomation, active: false, phase: "stopped-at-identity" } });
       return;
     }
-    if (applicationAutomation.phase === "agreed-shift-timing") return;
     const agreeButtons = exactAction("I agree");
-    if (agreeButtons.length) return;
 
+if (agreeButtons.length) {
+  agreeButtons[0].click();
+  return;
+}
+    const accountCheck = await chrome.runtime.sendMessage({ type: "check-amazon-account" }).catch(() => ({ ok: false }));
+    if (!accountCheck?.ok) return;
+
+    if (applicationAutomation.phase === "agreed-shift-timing") return;
     const alternativeButtons = [
       ...exactAction("Accept offer"),
       ...exactAction("Accept this offer"),
