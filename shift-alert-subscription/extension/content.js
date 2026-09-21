@@ -214,14 +214,19 @@
       await chrome.storage.local.set({ applicationAutomation: { ...applicationAutomation, active: false, phase: "stopped-at-identity" } });
       return;
     }
-    const agreeButtons = exactAction("I agree");
-
-if (agreeButtons.length) {
-  agreeButtons[0].click();
-  return;
-}
     const accountCheck = await chrome.runtime.sendMessage({ type: "check-amazon-account" }).catch(() => ({ ok: false }));
     if (!accountCheck?.ok) return;
+
+    const agreeButtons = exactAction("I agree");
+    if (agreeButtons.length) {
+      if (!applicationAutomation.agreementClicked) {
+        await chrome.storage.local.set({
+          applicationAutomation: { ...applicationAutomation, agreementClicked: true }
+        });
+        clickOnce(agreeButtons[0]);
+      }
+      return;
+    }
 
     if (applicationAutomation.phase === "agreed-shift-timing") return;
     const alternativeButtons = [
