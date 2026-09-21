@@ -209,9 +209,24 @@
     }
 
     const identityStep = [...document.querySelectorAll("h1, h2, h3, [role='heading'], button, [role='button']")]
-      .some(element => visible(element) && /^(?:(?:start|complete|begin) )?(?:identity verification|verify your identity|identity check|take a selfie|upload (?:your )?(?:id|identity document))$/i.test(actionLabel(element)));
+      .find(element => visible(element) && /^(?:(?:start|complete|begin) )?(?:identity verification|verify your identity|identity check|liveness check|take a selfie|upload (?:your )?(?:id|identity document))$|^(?:start|begin) verification$/i.test(actionLabel(element)));
     if (identityStep) {
-      await chrome.storage.local.set({ applicationAutomation: { ...applicationAutomation, active: false, phase: "stopped-at-identity" } });
+      const checkboxes = [...document.querySelectorAll("input[type='checkbox'], [role='checkbox']")].filter(visible);
+      if (checkboxes.length !== 2) return;
+
+      const isChecked = box => box.matches("input[type='checkbox']")
+        ? box.checked
+        : box.getAttribute("aria-checked") === "true";
+      const unchecked = checkboxes.filter(box => !isChecked(box));
+      if (unchecked.length) {
+        unchecked.forEach(clickOnce);
+        setTimeout(prepareApplication, 150);
+        return;
+      }
+
+      const startButtons = matchingAction(/^(?:start|begin) (?:identity )?verification$/i);
+      if (startButtons.length === 1) clickOnce(startButtons[0]);
+      else setTimeout(prepareApplication, 400);
       return;
     }
     const agreeButtons = exactAction("I agree");

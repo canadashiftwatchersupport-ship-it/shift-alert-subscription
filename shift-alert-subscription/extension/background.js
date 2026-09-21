@@ -192,6 +192,31 @@ registerAccountProtectedListener((message, sender, sendResponse) => {
     return true;
   }
 
+  if (message.type === "identity-verification-ready") {
+    if (!sender.tab || !sender.url?.startsWith("https://hiring.amazon.ca/")) {
+      sendResponse({ ok: false });
+      return;
+    }
+    (async () => {
+      const tab = await chrome.tabs.get(sender.tab.id);
+      await chrome.tabs.update(tab.id, { active: true });
+      await chrome.windows.update(tab.windowId, { focused: true });
+      await chrome.storage.local.set({
+        "notification:amazon-shift:identity-ready": { tabId: tab.id }
+      });
+      await chrome.notifications.create("amazon-shift:identity-ready", {
+        type: "basic",
+        iconUrl: "icon.svg",
+        title: "Identity check needs you",
+        message: "Complete identity verification yourself.",
+        priority: 2,
+        requireInteraction: true
+      });
+      sendResponse({ ok: true });
+    })().catch(error => sendResponse({ ok: false, message: String(error) }));
+    return true;
+  }
+
   if (message.type === "jobs-found") {
     Promise.resolve(amazonAccountAllowed(message.accountKey)).then(ok => ok ? handleJobs(message.jobs, sender.tab) : null).then(result => sendResponse({
       ok: true,
@@ -294,6 +319,21 @@ async function handleJobs(jobs, sourceTab) {
 
 chrome.notifications.onClicked.addListener(async notificationId => {
   if (!notificationId.startsWith("amazon-shift:")) return;
+  if (notificationId === "amazon-shift:identity-ready") {
+    const key = `notification:${notificationId}`;
+    const stored = await chrome.storage.local.get(key);
+    const tabId = stored[key]?.tabId;
+    if (tabId) {
+      try {
+        const tab = await chrome.tabs.get(tabId);
+        await chrome.tabs.update(tab.id, { active: true });
+        await chrome.windows.update(tab.windowId, { focused: true });
+      } catch { /* The verification tab was closed. */ }
+    }
+    await chrome.notifications.clear(notificationId);
+    await chrome.storage.local.remove(key);
+    return;
+  }
   if (notificationId === "amazon-shift:manual-agreement") {
     const key = `notification:${notificationId}`;
     const stored = await chrome.storage.local.get(key);

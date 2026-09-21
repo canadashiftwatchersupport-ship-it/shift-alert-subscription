@@ -11,13 +11,14 @@ function harness() {
   let accountPageOpens = 0;
   let serverChecks = 0;
   let listener;
+  let seen = {};
   const license = { active: true, token: 'token-one', email: 'customer@example.com', expiresAt: new Date(now + 100_000).toISOString() };
   const context = {
     Date: class extends Date { static now() { return now; } },
     SHIFT_ALERT_CONFIG: { licenseApiBase: 'https://example.test' },
     chrome: {
       storage: { local: {
-        async get() { return { license }; },
+        async get() { return { license, seen }; },
         async set() {}
       } },
       alarms: { async clear() {} },
@@ -34,12 +35,20 @@ function harness() {
   };
   vm.createContext(context);
   vm.runInContext(source, context);
-  vm.runInContext('registerAccountProtectedListener(() => {})', context);
+  vm.runInContext('registerAccountProtectedListener((_message, _sender, reply) => reply({ ok: true, handled: true }))', context);
   return {
     get accountPageOpens() { return accountPageOpens; },
     get serverChecks() { return serverChecks; },
     advance(milliseconds) { now += milliseconds; },
     changeLicense() { license.token = 'token-two'; },
+    setSeen(value) { seen = value; },
+    jobs(jobs) {
+      return new Promise(resolve => listener(
+        { type: 'jobs-found', jobs },
+        { tab: { id: 7 }, url: 'https://hiring.amazon.ca/app#/jobSearch' },
+        resolve
+      ));
+    },
     check(tabId) {
       return new Promise(resolve => listener(
         { type: 'check-amazon-account' },
@@ -56,6 +65,17 @@ test('reuses one account check for immediate shift actions in the same tab', asy
   assert.equal((await app.check(7)).ok, true);
   assert.equal(app.accountPageOpens, 1);
   assert.equal(app.serverChecks, 1);
+});
+
+test('repeated scans of seen jobs skip account verification while a new job is checked', async () => {
+  const app = harness();
+  app.setSeen({ old: Date.now() });
+  const repeated = await app.jobs([{ id: 'old' }]);
+  assert.equal(repeated.prepareJobId, null);
+  assert.equal(app.accountPageOpens, 0);
+  const fresh = await app.jobs([{ id: 'old' }, { id: 'new' }]);
+  assert.equal(fresh.handled, true);
+  assert.equal(app.accountPageOpens, 1);
 });
 
 test('rechecks after the short window, in another tab, or for a new license', async () => {
